@@ -62,11 +62,15 @@ const auth = new google.auth.GoogleAuth({
 app.get("/api/filaments", async (req, res) => {
   try {
     const client = await auth.getClient();
-    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const sheets = google.sheets({
+      version: "v4",
+      auth: client,
+    });
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: "Sheet1!A2:L",
+      range: "Sheet1!A2:J",
     });
 
     const rows = response.data.values || [];
@@ -74,29 +78,24 @@ app.get("/api/filaments", async (req, res) => {
     let usage = {};
 
     rows.forEach((row) => {
-      // G column
-      const filamentType = row[6]?.trim();
+      const filamentType = row[5];
+      const filamentColor = row[6];
+      const totalUsage = Number(row[8] || 0);
 
-      // H column
-      const filamentColor = row[7]?.trim();
-
-      // J column
-      const weightUsed = Number(row[9] || 0);
-
-      // SAME FORMAT AS FRONTEND
       const key = `${filamentType} ${filamentColor}`;
 
-      console.log("DEBUG:", key, weightUsed);
+      if (!filamentType || !filamentColor) return;
 
-      if (!filamentType || !filamentColor || isNaN(weightUsed)) return;
-
-      usage[key] = (usage[key] || 0) + weightUsed;
+      usage[key] = (usage[key] || 0) + totalUsage;
     });
 
     res.json(usage);
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Sheet error" });
+    console.error("GOOGLE SHEET ERROR:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
