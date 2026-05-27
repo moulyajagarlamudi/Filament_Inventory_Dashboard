@@ -43,8 +43,11 @@ try {
       const newFilament = await Filament.create(req.body);
       res.json(newFilament);
     } catch (err) {
-      console.error("Direct create error:", err);
-      res.status(500).json({ error: err.message });
+      console.error("GOOGLE SHEET ERROR:", err);
+
+      res.status(500).json({
+        error: err.message,
+    });
     }
   });
 } catch (e) {
