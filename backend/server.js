@@ -41,15 +41,21 @@ try {
   app.post("/api/filaments", async (req, res) => {
     try {
       const newFilament = await Filament.create(req.body);
+
       res.json(newFilament);
     } catch (err) {
-  console.error("GOOGLE SHEET ERROR:", err);
+      console.error("Direct create error:", err);
 
-  res.status(500).json({
-    error: err.message,
+      res.status(500).json({
+        error: err.message,
+      });
+    }
   });
 } catch (e) {
-  console.warn("Filament model not available to create directly:", e.message);
+  console.warn(
+    "Filament model not available to create directly:",
+    e.message,
+  );
 }
 
 const auth = new google.auth.GoogleAuth({
