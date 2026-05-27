@@ -52,7 +52,9 @@ try {
 }
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: "credentials.json",
+  keyFile: process.env.RENDER
+    ? "/etc/secrets/credentials.json"
+    : "credentials.json",
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
 });
 
@@ -97,6 +99,12 @@ app.get("/api/filaments", async (req, res) => {
   }
 });
 
-app.listen(4000, () => {
-  console.log("Server running on http://localhost:4000");
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+app.get("/healthz", (req, res) => {
+  res.send("OK");
 });
