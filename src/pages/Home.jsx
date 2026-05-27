@@ -20,7 +20,7 @@ import goldSpool from "../assets/gold_spool.png";
 import whiteSpool from "../assets/white_spool.png";
 import greenSpool from "../assets/green_spool.png";
 import redSpool from "../assets/red_spool.png";
-import brassSpool from "../assets/antique_brass_spool.png";
+import brassSpool from "../assets/Antique_brass_spool.png";
 import greySpool from "../assets/grey_spool.png";
 
 export default function Home() {
