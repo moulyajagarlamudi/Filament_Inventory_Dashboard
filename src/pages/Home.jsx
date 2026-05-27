@@ -36,7 +36,7 @@ export default function Home() {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/filaments/inventory");
+      const res = await fetch("https://filament-backend.onrender.com/api/filaments/inventory");
       const data = await res.json();
       const map = {};
 
@@ -58,7 +58,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         // GOOGLE SHEET DATA
-        const usageRes = await fetch("http://localhost:4000/api/filaments");
+        const usageRes = await fetch("https://filament-backend.onrender.com/api/filaments");
 
         const usageData = await usageRes.json();
 
@@ -66,7 +66,7 @@ export default function Home() {
 
         // MONGODB INVENTORY
         const inventoryRes = await fetch(
-          "http://localhost:4000/api/filaments/inventory",
+          "https://filament-backend.onrender.com/api/filaments/inventory",
         );
 
         const inventoryData = await inventoryRes.json();
@@ -320,7 +320,7 @@ export default function Home() {
 
       if (existing && existing._id) {
         response = await fetch(
-          `http://localhost:4000/api/filaments/${existing._id}`,
+          `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
           {
             method: "PUT",
             headers: {
@@ -336,7 +336,7 @@ export default function Home() {
         const filament = selectedFilament?.group || "";
         const color = selectedFilament?.color || "";
 
-        response = await fetch("http://localhost:4000/api/filaments", {
+        response = await fetch("https://filament-backend.onrender.com/api/filaments", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
