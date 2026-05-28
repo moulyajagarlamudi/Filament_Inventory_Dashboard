@@ -77,6 +77,8 @@ app.get("/api/filaments", async (req, res) => {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: "Sheet1!A2:J",
+      // ADD THIS 👇
+      majorDimension: "ROWS",
     });
 
     const rows = response.data.values || [];
@@ -88,12 +90,16 @@ app.get("/api/filaments", async (req, res) => {
       const filamentColor = row[6];
       const totalUsage = Number(row[8] || 0);
 
-      const key = `${filamentType} ${filamentColor}`;
-
       if (!filamentType || !filamentColor) return;
 
+      const key = `${filamentType} ${filamentColor}`;
       usage[key] = (usage[key] || 0) + totalUsage;
     });
+
+    // 🔥 FORCE NO CACHE
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
 
     res.json(usage);
   } catch (err) {
