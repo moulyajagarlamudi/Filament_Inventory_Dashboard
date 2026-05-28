@@ -58,9 +58,11 @@ export default function Home() {
     const fetchData = async () => {
       try {
         // GOOGLE SHEET DATA
-        const usageRes = await fetch("https://filament-backend.onrender.com/api/filaments");
+        const usageRes = await fetch("https://filament-backend.onrender.com/api/filaments?t=" + Date.now());
 
         const usageData = await usageRes.json();
+        
+        console.log("USAGE FROM BACKEND:", usageData);
 
         setUsage(usageData || {});
 

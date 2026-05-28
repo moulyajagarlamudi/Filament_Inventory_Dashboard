@@ -86,9 +86,10 @@ app.get("/api/filaments", async (req, res) => {
     let usage = {};
 
     rows.forEach((row) => {
-      const filamentType = row[5];
-      const filamentColor = row[6];
-      const totalUsage = Number(row[8] || 0);
+      console.log("ROW:", row);
+      const filamentType = row[6];
+      const filamentColor = row[];
+      const totalUsage = Number(row[9] || 0);
 
       if (!filamentType || !filamentColor) return;
 
