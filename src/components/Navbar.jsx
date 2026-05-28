@@ -15,7 +15,7 @@ export default function Navbar({ query, setQuery }) {
           />
         </div>
 
-        <div className="w-full md:w-96">
+        <div className="w-full md:w-[500px]">
           <SearchBar query={query} setQuery={setQuery} />
         </div>
       </div>
