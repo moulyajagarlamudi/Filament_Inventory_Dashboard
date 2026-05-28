@@ -24,6 +24,7 @@ import brassSpool from "../assets/Antique_brass_spool.png";
 import greySpool from "../assets/grey_spool.png";
 
 export default function Home() {
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [deleteModal, setDeleteModal] = useState(null);
   const [extraGroups, setExtraGroups] = useState({});
   const [selectedFilament, setSelectedFilament] = useState(null);
@@ -568,10 +569,31 @@ export default function Home() {
 
       <div className="mx-auto max-w-7xl px-8 py-10">
         {/* TITLE */}
-        <div className="mb-12">
+        <div className="mb-12 flex items-center justify-between">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900">
             Filament Inventory
           </h1>
+
+          <button
+            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+            className={`
+      rounded-2xl
+      px-6
+      py-3
+      text-sm
+      font-bold
+      text-white
+      transition-all
+      duration-300
+      ${
+        showLowStockOnly
+          ? "bg-red-700 hover:bg-red-800"
+          : "bg-red-500 hover:bg-red-600"
+      }
+    `}
+          >
+            {showLowStockOnly ? "Show All Stocks" : "Low Stock"}
+          </button>
         </div>
 
         {/* GROUPS */}
@@ -648,6 +670,9 @@ export default function Home() {
 
                     const isLowStock = remaining <= 200;
                     const spoolCount = updatedSpools.length;
+                    if (showLowStockOnly && !isLowStock) {
+                      return null;
+                    }
 
                     return (
                       <div
