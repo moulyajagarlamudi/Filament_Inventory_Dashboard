@@ -118,6 +118,10 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+app.get("/version", (req, res) => {
+  res.send("NEW BACKEND VERSION");
+});
+
 app.get("/healthz", (req, res) => {
   res.send("OK");
 });
