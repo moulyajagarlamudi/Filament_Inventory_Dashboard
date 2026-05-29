@@ -33,7 +33,11 @@ export default function Home({
   onLogout,
 }) {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState(() => {
+    const savedLogs = localStorage.getItem("inventoryLogs");
+
+    return savedLogs ? JSON.parse(savedLogs) : [];
+  });
   const [internalShowLowStockOnly, setInternalShowLowStockOnly] =
     useState(false);
   const showLowStock =
@@ -355,6 +359,14 @@ export default function Home({
     setStocks(initial);
   }, []);
 
+  useEffect(() => {
+    const savedLogs = localStorage.getItem("inventoryLogs");
+
+    if (savedLogs) {
+      setLogs(JSON.parse(savedLogs));
+    }
+  }, []);
+
   // ➕ ADD STOCK
   const addStock = async (key) => {
     const value = Number(inputs[key] || 0);
@@ -428,13 +440,12 @@ export default function Home({
 
       await fetchInventory();
 
-      setLogs((prev) => [
-        {
-          action: `Added ${value}g to ${key}`,
-          time: new Date().toLocaleString(),
-        },
-        ...prev,
-      ]);
+      const logEntry = {
+        action: `Added ${value}g to ${selectedFilament?.group || ""} ${selectedFilament?.color || ""}`,
+        time: new Date().toLocaleString(),
+      };
+
+      setLogs((prev) => [logEntry, ...prev]);
 
       setSuccessMessage(`${value}g spool added successfully`);
 
@@ -600,6 +611,17 @@ export default function Home({
         },
         ...prev,
       ]);
+
+      localStorage.setItem(
+        "inventoryLogs",
+        JSON.stringify([
+          {
+            action: `Added ${value}g to ${key}`,
+            time: new Date().toLocaleString(),
+          },
+          ...logs,
+        ]),
+      );
 
       setSuccessMessage("Filament deleted successfully");
 
