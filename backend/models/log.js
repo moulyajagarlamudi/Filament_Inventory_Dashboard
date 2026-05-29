@@ -9,7 +9,7 @@ const logSchema = new mongoose.Schema(
 
     adminId: {
       type: String,
-      default: "admin",
+      default: "ADMIN",
     },
 
     ipAddress: {
@@ -22,4 +22,6 @@ const logSchema = new mongoose.Schema(
   },
 );
 
-module.exports = mongoose.model("Log", logSchema);
+// ✅ FIX OVERWRITE ERROR
+module.exports =
+  mongoose.models.Log || mongoose.model("Log", logSchema);
