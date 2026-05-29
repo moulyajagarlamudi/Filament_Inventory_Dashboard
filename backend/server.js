@@ -114,6 +114,14 @@ const auth = new google.auth.GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
 });
 
+// ✅ DEBUG LOGS
+console.log("JWT:", process.env.JWT_SECRET);
+console.log("ADMIN:", process.env.ADMIN_ID);
+console.log(
+  "MONGO:",
+  process.env.MONGO_URI ? "FOUND" : "MISSING",
+);
+
 app.get("/api/filaments", async (req, res) => {
   try {
     const client = await auth.getClient();

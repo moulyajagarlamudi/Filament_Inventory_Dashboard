@@ -33,4 +33,6 @@ const filamentSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Filament", filamentSchema);
+module.exports =
+  mongoose.models.Filament ||
+  mongoose.model("Filament", filamentSchema);
