@@ -5,7 +5,7 @@ const router = express.Router();
 
 const Filament = require("../models/filamentModel");
 
-const Log = require("../models/Log");
+const Log = require("../models/log");
 
 
 // ========================================
