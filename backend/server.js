@@ -70,7 +70,7 @@ app.post("/api/admin/login", async (req, res) => {
       process.env.JWT_SECRET,
       {
         expiresIn: "7d",
-      }
+      },
     );
 
     res.json({
@@ -104,10 +104,7 @@ try {
     }
   });
 } catch (e) {
-  console.warn(
-    "Filament model not available to create directly:",
-    e.message,
-  );
+  console.warn("Filament model not available to create directly:", e.message);
 }
 
 const auth = new google.auth.GoogleAuth({
@@ -165,6 +162,14 @@ app.get("/api/filaments", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err);
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
