@@ -1,32 +1,25 @@
 const mongoose = require("mongoose");
 
-const logSchema = new mongoose.Schema({
-  action: {
-    type: String,
-    required: true,
-  },
+const logSchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      required: true,
+    },
 
-  filament: {
-    type: String,
-  },
+    adminId: {
+      type: String,
+      default: "admin",
+    },
 
-  color: {
-    type: String,
+    ipAddress: {
+      type: String,
+      default: "",
+    },
   },
-
-  weight: {
-    type: Number,
+  {
+    timestamps: true,
   },
-
-  user: {
-    type: String,
-    default: "Admin",
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+);
 
 module.exports = mongoose.model("Log", logSchema);
