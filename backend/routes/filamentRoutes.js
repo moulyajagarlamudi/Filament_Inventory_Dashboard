@@ -1,116 +1,152 @@
 const express = require("express");
-const Filament = require("../models/filamentModel");
+const verifyToken = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
-  try {
-    const newFilament = await Filament.create(req.body);
-    res.json(newFilament);
-  } catch (err) {
-    console.error("Create filament error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
+const Filament = require("../models/filamentModel");
 
+const Log = require("../models/Log");
+
+
+// ========================================
+// GET INVENTORY
+// ========================================
 router.get("/inventory", async (req, res) => {
   try {
-    const filaments = await Filament.find().sort({ filament: 1, color: 1 });
-    res.json(filaments);
-  } catch (err) {
-    console.error("Inventory fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch inventory" });
-  }
-});
-
-router.put("/:id", async (req, res) => {
-  try {
-    const updated = await Filament.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const inventory = await Filament.find().sort({
+      createdAt: -1,
     });
 
-    if (!updated) {
-      return res.status(404).json({ error: "Filament not found" });
-    }
-
-    res.json(updated);
+    res.json(inventory);
   } catch (err) {
-    console.error("Update filament error:", err);
-    res.status(500).json({ error: err.message });
+    console.log("Inventory fetch error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
-router.delete("/:id", async (req, res) => {
+
+// ========================================
+// CREATE NEW STOCK
+// ========================================
+router.post("/", verifyToken, async (req, res) => {
   try {
-    const deleted = await Filament.findByIdAndDelete(req.params.id);
+    const {
+      filament,
+      color,
+      currentStock,
+      usedStock,
+      spools,
+    } = req.body;
 
-    if (!deleted) {
-      return res.status(404).json({ error: "Filament not found" });
-    }
+    const newFilament = await Filament.create({
+      filament,
+      color,
+      currentStock,
+      usedStock,
+      spools,
+    });
 
-    res.json({ success: true });
+    // ✅ STORE LOG
+    await Log.create({
+      action: "NEW_STOCK_CREATED",
+      filament,
+      color,
+      weight: currentStock,
+    });
+
+    res.json(newFilament);
   } catch (err) {
-    console.error("Delete filament error:", err);
-    res.status(500).json({ error: err.message });
+    console.log("Create stock error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
-router.post("/add-stock", async (req, res) => {
-  const { filament, color, amount } = req.body;
-  const parsedAmount = Number(amount);
 
-  if (!filament || !color || isNaN(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ error: "filament, color and positive amount are required" });
-  }
-
+// ========================================
+// UPDATE STOCK
+// ========================================
+router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const updatedFilament = await Filament.findOneAndUpdate(
-      { filament, color },
-      {
-        $inc: { currentStock: parsedAmount },
-        $set: { updatedAt: new Date() },
-      },
+    const existing = await Filament.findById(req.params.id);
+
+    if (!existing) {
+      return res.status(404).json({
+        error: "Filament not found",
+      });
+    }
+
+    const previousStock = existing.currentStock || 0;
+
+    const updated = await Filament.findByIdAndUpdate(
+      req.params.id,
+      req.body,
       {
         new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
       }
     );
 
-    res.json(updatedFilament);
+    const newStock = updated.currentStock || 0;
+
+    const addedWeight = newStock - previousStock;
+
+    // ✅ STORE LOG
+    await Log.create({
+      action: "ADD_STOCK",
+      filament: updated.filament,
+      color: updated.color,
+      weight: addedWeight,
+    });
+
+    res.json(updated);
   } catch (err) {
-    console.error("Add stock error:", err);
-    res.status(500).json({ error: "Failed to update stock" });
+    console.log("Update stock error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
-router.post("/use-stock", async (req, res) => {
-  const { filament, color, amount } = req.body;
-  const parsedAmount = Number(amount);
 
-  if (!filament || !color || isNaN(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ error: "filament, color and positive amount are required" });
-  }
-
+// ========================================
+// DELETE FILAMENT
+// ========================================
+router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const existing = await Filament.findOne({ filament, color });
+    const existing = await Filament.findById(req.params.id);
+
     if (!existing) {
-      return res.status(404).json({ error: "Filament entry not found" });
+      return res.status(404).json({
+        error: "Filament not found",
+      });
     }
 
-    if (existing.currentStock < parsedAmount) {
-      return res.status(400).json({ error: "Not enough stock available" });
-    }
+    await Filament.findByIdAndDelete(req.params.id);
 
-    existing.currentStock -= parsedAmount;
-    existing.usedStock += parsedAmount;
-    existing.updatedAt = new Date();
-    await existing.save();
+    // ✅ STORE LOG
+    await Log.create({
+      action: "DELETE_STOCK",
+      filament: existing.filament,
+      color: existing.color,
+      weight: existing.currentStock,
+    });
 
-    res.json(existing);
+    res.json({
+      success: true,
+      message: "Filament deleted successfully",
+    });
   } catch (err) {
-    console.error("Use stock error:", err);
-    res.status(500).json({ error: "Failed to update used stock" });
+    console.log("Delete stock error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 

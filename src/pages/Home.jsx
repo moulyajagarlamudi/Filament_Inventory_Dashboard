@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 // 🎨 IMPORT SPOOL IMAGES
@@ -23,8 +24,22 @@ import redSpool from "../assets/red_spool.png";
 import brassSpool from "../assets/Antique_brass_spool.png";
 import greySpool from "../assets/grey_spool.png";
 
-export default function Home() {
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+export default function Home({
+  isAdmin = false,
+  showLowStockOnly,
+  setShowLowStockOnly,
+  hideHeader = false,
+  hideScrollButtons = false,
+}) {
+  const navigate = useNavigate();
+  const [logs, setLogs] = useState([]);
+  const [internalShowLowStockOnly, setInternalShowLowStockOnly] = useState(false);
+  const showLowStock =
+    typeof showLowStockOnly === "boolean"
+      ? showLowStockOnly
+      : internalShowLowStockOnly;
+  const setShowLowStock =
+    setShowLowStockOnly || setInternalShowLowStockOnly;
   const [deleteModal, setDeleteModal] = useState(null);
   const [extraGroups, setExtraGroups] = useState({});
   const [selectedFilament, setSelectedFilament] = useState(null);
@@ -364,6 +379,8 @@ export default function Home() {
         0,
       );
 
+      const token = localStorage.getItem("token");
+
       if (existing && existing._id) {
         response = await fetch(
           `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
@@ -371,6 +388,7 @@ export default function Home() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              Authorization: token,
             },
             body: JSON.stringify({
               currentStock: totalStock,
@@ -388,6 +406,7 @@ export default function Home() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: token,
             },
             body: JSON.stringify({
               filament,
@@ -407,6 +426,14 @@ export default function Home() {
       }
 
       await fetchInventory();
+
+      setLogs((prev) => [
+        {
+          action: `Added ${value}g to ${key}`,
+          time: new Date().toLocaleString(),
+        },
+        ...prev,
+      ]);
 
       setSuccessMessage(`${value}g spool added successfully`);
 
@@ -456,6 +483,7 @@ export default function Home() {
         0,
       );
 
+      const token = localStorage.getItem("token");
       if (existing && existing._id) {
         await fetch(
           `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
@@ -463,6 +491,7 @@ export default function Home() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              Authorization: token,
             },
             body: JSON.stringify({
               currentStock: totalStock,
@@ -475,6 +504,7 @@ export default function Home() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: token,
           },
           body: JSON.stringify({
             filament,
@@ -495,6 +525,14 @@ export default function Home() {
         color: "",
         weight: "",
       });
+
+      setLogs((prev) => [
+        {
+          action: `Created new stock ${filament} ${color} (${weight}g)`,
+          time: new Date().toLocaleString(),
+        },
+        ...prev,
+      ]);
 
       setSuccessMessage("New stock added successfully");
 
@@ -529,10 +567,14 @@ export default function Home() {
       }
 
       // 🔥 DELETE ENTIRE FILAMENT
+      const token = localStorage.getItem("token");
       const response = await fetch(
         `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
         {
           method: "DELETE",
+          headers: {
+            Authorization: token,
+          },
         },
       );
 
@@ -549,6 +591,14 @@ export default function Home() {
         color: "",
         weight: "",
       });
+
+      setLogs((prev) => [
+        {
+          action: `Deleted ${filament} ${color}`,
+          time: new Date().toLocaleString(),
+        },
+        ...prev,
+      ]);
 
       setSuccessMessage("Filament deleted successfully");
 
@@ -568,33 +618,61 @@ export default function Home() {
       <Navbar query={query} setQuery={setQuery} />
 
       <div className="mx-auto max-w-7xl px-8 py-10">
-        {/* TITLE */}
-        <div className="mb-12 flex items-center justify-between">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-            Filament Inventory
-          </h1>
+        {!hideHeader && (
+          <div className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+              Filament Inventory
+            </h1>
 
-          <button
-            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-            className={`
-      rounded-2xl
-      px-6
-      py-3
-      text-sm
-      font-bold
-      text-white
-      transition-all
-      duration-300
-      ${
-        showLowStockOnly
-          ? "bg-red-700 hover:bg-red-800"
-          : "bg-red-500 hover:bg-red-600"
-      }
-    `}
-          >
-            {showLowStockOnly ? "Show All Stocks" : "Low Stock"}
-          </button>
-        </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              {!isAdmin && (
+                <button
+                  onClick={() => navigate("/admin/login")}
+                  className="
+                rounded-2xl
+                bg-slate-900
+                px-7
+                py-3
+                text-sm
+                font-bold
+                text-white
+                shadow-xl
+                transition-all
+                duration-300
+                hover:-translate-y-1
+                hover:bg-slate-700
+              "
+                >
+                  Admin Login
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowLowStock(!showLowStock)}
+                className={
+                  `
+              rounded-2xl
+              px-6
+              py-3
+              text-sm
+              font-bold
+              text-white
+              transition-all
+              duration-300
+              shadow-lg
+              ${
+                showLowStock
+                  ? "bg-red-700 hover:bg-red-800"
+                  : "bg-red-500 hover:bg-red-600"
+              }
+            `
+                }
+              >
+                {showLowStock ? "Show All" : "Low Stock"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* GROUPS */}
         <div className="space-y-14">
@@ -670,7 +748,7 @@ export default function Home() {
 
                     const isLowStock = remaining <= 200;
                     const spoolCount = updatedSpools.length;
-                    if (showLowStockOnly && !isLowStock) {
+                    if (showLowStock && !isLowStock) {
                       return null;
                     }
 
@@ -843,33 +921,35 @@ export default function Home() {
                         </div>
 
                         {/* BUTTON */}
-                        <div className="mt-8">
-                          <button
-                            onClick={() =>
-                              setSelectedFilament({
-                                key: filamentKey,
-                                group,
-                                color,
-                              })
-                            }
-                            className="
-                              w-full
-                              rounded-2xl
-                              bg-slate-900
-                              py-3
-                              text-sm
-                              font-semibold
-                              text-white
-                              transition-all
-                              duration-300
-                              hover:scale-[1.02]
-                              hover:bg-slate-700
-                              active:scale-95
-                            "
-                          >
-                            Add Stock
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="mt-8">
+                            <button
+                              onClick={() =>
+                                setSelectedFilament({
+                                  key: filamentKey,
+                                  group,
+                                  color,
+                                })
+                              }
+                              className="
+                                w-full
+                                rounded-2xl
+                                bg-slate-900
+                                py-3
+                                text-sm
+                                font-semibold
+                                text-white
+                                transition-all
+                                duration-300
+                                hover:scale-[1.02]
+                                hover:bg-slate-700
+                                active:scale-95
+                              "
+                            >
+                              Add Stock
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -880,12 +960,61 @@ export default function Home() {
         </div>
       </div>
 
-      {/* BOTTOM BUTTONS */}
-      <div className="mt-16 flex flex-wrap items-center justify-center gap-6">
-        {/* ADD BUTTON */}
-        <button
-          onClick={() => setShowNewStockModal(true)}
-          className="
+      {/* LOGS */}
+      <div className="mt-16">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="h-8 w-2 rounded-full bg-slate-900" />
+
+          <h2 className="text-2xl font-bold text-slate-900">Inventory Logs</h2>
+        </div>
+
+        <div className="space-y-4">
+          {logs.length === 0 ? (
+            <div
+              className="
+          rounded-3xl
+          border
+          border-slate-200
+          bg-white
+          p-6
+          text-slate-500
+          shadow-sm
+        "
+            >
+              No recent actions
+            </div>
+          ) : (
+            logs.map((log, index) => (
+              <div
+                key={index}
+                className="
+            flex
+            items-center
+            justify-between
+            rounded-3xl
+            border
+            border-slate-200
+            bg-white
+            px-6
+            py-5
+            shadow-sm
+          "
+              >
+                <p className="font-semibold text-slate-800">{log.action}</p>
+
+                <p className="text-sm text-slate-400">{log.time}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="mt-16 flex flex-wrap items-center justify-center gap-6">
+          {/* ADD BUTTON */}
+          <button
+            onClick={() => setShowNewStockModal(true)}
+            className="
       group
       relative
       overflow-hidden
@@ -904,19 +1033,19 @@ export default function Home() {
       hover:bg-slate-700
       active:scale-95
     "
-        >
-          <span className="flex items-center gap-3">
-            <span className="text-2xl transition-transform duration-500 group-hover:rotate-90">
-              +
+          >
+            <span className="flex items-center gap-3">
+              <span className="text-2xl transition-transform duration-500 group-hover:rotate-90">
+                +
+              </span>
+              Add New Stock
             </span>
-            Add New Stock
-          </span>
-        </button>
+          </button>
 
-        {/* DELETE BUTTON */}
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="
+          {/* DELETE BUTTON */}
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="
       group
       relative
       overflow-hidden
@@ -935,17 +1064,18 @@ export default function Home() {
       hover:bg-red-600
       active:scale-95
     "
-        >
-          <span className="flex items-center gap-3">
-            <span className="text-2xl transition-transform duration-500 group-hover:rotate-90">
-              ×
+          >
+            <span className="flex items-center gap-3">
+              <span className="text-2xl transition-transform duration-500 group-hover:rotate-90">
+                ×
+              </span>
+              Delete Stock
             </span>
-            Delete Stock
-          </span>
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
       {/* NEW STOCK MODAL */}
-      {showNewStockModal && (
+      {isAdmin && showNewStockModal && (
         <div
           className="
     fixed
@@ -1110,7 +1240,7 @@ export default function Home() {
       )}
 
       {/* DELETE STOCK MODAL */}
-      {showDeleteModal && (
+      {isAdmin && showDeleteModal && (
         <div
           className="
       fixed
@@ -1259,6 +1389,203 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ADD STOCK MODAL */}
+      {isAdmin && selectedFilament && (
+        <div
+          className="
+      fixed
+      inset-0
+      z-[9999]
+      flex
+      items-center
+      justify-center
+      bg-black/40
+      backdrop-blur-sm
+      animate-fadeIn
+    "
+        >
+          <div
+            className="
+        relative
+        w-[420px]
+        overflow-hidden
+        rounded-[28px]
+        bg-white
+        p-7
+        shadow-[0_25px_60px_rgba(0,0,0,0.25)]
+        animate-scaleIn
+      "
+          >
+            {/* CLOSE */}
+            <button
+              onClick={() => {
+                setSelectedFilament(null);
+                setInputError("");
+              }}
+              className="
+          absolute
+          right-4
+          top-4
+          flex
+          h-8
+          w-8
+          items-center
+          justify-center
+          rounded-full
+          bg-slate-100
+          text-sm
+          font-bold
+          text-slate-500
+          transition-all
+          duration-300
+          hover:bg-red-500
+          hover:text-white
+        "
+            >
+              ×
+            </button>
+
+            {/* TOP */}
+            <div className="flex items-center gap-5">
+              {/* IMAGE */}
+              <div
+                className="
+            flex
+            h-20
+            w-20
+            items-center
+            justify-center
+            rounded-2xl
+            bg-slate-50
+            border
+            border-slate-200
+          "
+              >
+                <img
+                  src={getSpoolImage(selectedFilament.color)}
+                  alt={selectedFilament.color}
+                  className="h-16 w-16 object-contain"
+                />
+              </div>
+
+              {/* DETAILS */}
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {selectedFilament.group}
+                </h2>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <div
+                    className="h-4 w-4 rounded-full border"
+                    style={{
+                      background: getColor(selectedFilament.color),
+                    }}
+                  />
+
+                  <p className="text-sm font-medium text-slate-500">
+                    {selectedFilament.color}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* INPUT */}
+            <div className="mt-8">
+              <p className="mb-3 text-sm font-medium text-slate-500">
+                Add Weight
+              </p>
+
+              <input
+                type="number"
+                placeholder="Enter grams"
+                autoFocus
+                value={inputs[selectedFilament.key] || ""}
+                onChange={(e) =>
+                  setInputs((prev) => ({
+                    ...prev,
+                    [selectedFilament.key]: e.target.value,
+                  }))
+                }
+                className="
+            w-full
+            rounded-2xl
+            border
+            border-slate-200
+            bg-slate-50
+            px-5
+            py-4
+            text-base
+            font-medium
+            text-slate-900
+            outline-none
+            transition-all
+            duration-300
+            placeholder:text-slate-400
+            focus:border-slate-900
+            focus:bg-white
+          "
+              />
+
+              {inputError && (
+                <p className="mt-3 text-sm font-medium text-red-500">
+                  {inputError}
+                </p>
+              )}
+            </div>
+
+            {/* BUTTONS */}
+            <div className="mt-8 flex gap-4">
+              <button
+                onClick={() => {
+                  setSelectedFilament(null);
+                  setInputError("");
+                }}
+                className="
+            flex-1
+            rounded-2xl
+            border
+            border-slate-200
+            bg-white
+            py-3
+            text-sm
+            font-semibold
+            text-slate-700
+            transition-all
+            duration-300
+            hover:bg-slate-100
+          "
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => addStock(selectedFilament.key)}
+                className="
+            flex-1
+            rounded-2xl
+            bg-slate-900
+            py-3
+            text-sm
+            font-semibold
+            text-white
+            shadow-lg
+            transition-all
+            duration-300
+            hover:scale-[1.03]
+            hover:bg-slate-700
+            active:scale-95
+          "
+              >
+                Add Stock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCROLL BUTTONS */}
+      {/* Scroll buttons moved to individual page components */}
 
       {/* ✅ SUCCESS POPUP */}
       {successPopup && (

@@ -1,15 +1,21 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const { google } = require("googleapis");
 const filamentRoutes = require("./routes/filamentRoutes");
+const verifyToken = require("./middleware/authMiddleware");
+const Log = require("./models/Log");
+const authRoutes = require("./routes/authRoutes");
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
 
 // simple request logger to help debug routing
 app.use((req, res, next) => {
@@ -31,6 +37,52 @@ if (mongoUri) {
   );
 }
 
+// GET LOGS
+app.get("/api/logs", async (req, res) => {
+  try {
+    const logs = await Log.find().sort({ createdAt: -1 });
+
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+app.post("/api/admin/login", async (req, res) => {
+  try {
+    const { adminId, password } = req.body;
+
+    if (
+      adminId !== process.env.ADMIN_ID ||
+      password !== process.env.ADMIN_PASSWORD
+    ) {
+      return res.status(401).json({
+        error: "Invalid credentials",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        adminId,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    res.json({
+      token,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 app.use("/api/filaments", filamentRoutes);
 
 // Direct create endpoint to ensure POST /api/filaments returns JSON
@@ -38,7 +90,7 @@ app.use("/api/filaments", filamentRoutes);
 try {
   const Filament = require("./models/filamentModel");
 
-  app.post("/api/filaments", async (req, res) => {
+  app.post("/api/filaments", verifyToken, async (req, res) => {
     try {
       const newFilament = await Filament.create(req.body);
 

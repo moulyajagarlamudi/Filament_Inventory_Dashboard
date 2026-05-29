@@ -1,19 +1,36 @@
 const mongoose = require("mongoose");
 
-const filamentSchema = new mongoose.Schema({
-  filament: String,
+const filamentSchema = new mongoose.Schema(
+  {
+    filament: {
+      type: String,
+      required: true,
+    },
 
-  color: String,
+    color: {
+      type: String,
+      required: true,
+    },
 
-  currentStock: Number,
+    currentStock: {
+      type: Number,
+      default: 0,
+    },
 
-  usedStock: Number,
+    usedStock: {
+      type: Number,
+      default: 0,
+    },
 
-  // ✅ STORE ALL SPOOLS
-  spools: {
-    type: [Number],
-    default: [],
+    // ✅ STORE MULTIPLE SPOOLS
+    spools: {
+      type: [Number],
+      default: [],
+    },
   },
-});
+  {
+    timestamps: true,
+  }
+);
 
 module.exports = mongoose.model("Filament", filamentSchema);

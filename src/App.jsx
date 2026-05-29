@@ -1,29 +1,18 @@
-import React, { useEffect, useState } from 'react'
-import Home from './pages/Home'
-import { fetchFilaments } from './services/googleSheet'
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Viewer from "./pages/Viewer";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 
 export default function App() {
-
-  const [filaments, setFilaments] = useState([])
-
-  async function loadData() {
-    const data = await fetchFilaments()
-    setFilaments(data)
-  }
-
-  useEffect(() => {
-    loadData()
-
-    const interval = setInterval(() => {
-      loadData()
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [])
-
   return (
-    <div className="min-h-screen">
-      <Home filaments={filaments} />
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Viewer />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
