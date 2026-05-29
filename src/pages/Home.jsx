@@ -30,16 +30,17 @@ export default function Home({
   setShowLowStockOnly,
   hideHeader = false,
   hideScrollButtons = false,
+  onLogout,
 }) {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
-  const [internalShowLowStockOnly, setInternalShowLowStockOnly] = useState(false);
+  const [internalShowLowStockOnly, setInternalShowLowStockOnly] =
+    useState(false);
   const showLowStock =
     typeof showLowStockOnly === "boolean"
       ? showLowStockOnly
       : internalShowLowStockOnly;
-  const setShowLowStock =
-    setShowLowStockOnly || setInternalShowLowStockOnly;
+  const setShowLowStock = setShowLowStockOnly || setInternalShowLowStockOnly;
   const [deleteModal, setDeleteModal] = useState(null);
   const [extraGroups, setExtraGroups] = useState({});
   const [selectedFilament, setSelectedFilament] = useState(null);
@@ -621,52 +622,70 @@ export default function Home({
         {!hideHeader && (
           <div className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-              Filament Inventory
+              {isAdmin ? "Admin Dashboard" : "Filament Inventory"}
             </h1>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              {!isAdmin && (
+              {!isAdmin ? (
                 <button
                   onClick={() => navigate("/admin/login")}
                   className="
-                rounded-2xl
-                bg-slate-900
-                px-7
-                py-3
-                text-sm
-                font-bold
-                text-white
-                shadow-xl
-                transition-all
-                duration-300
-                hover:-translate-y-1
-                hover:bg-slate-700
-              "
+        rounded-2xl
+        bg-slate-900
+        px-7
+        py-3
+        text-sm
+        font-bold
+        text-white
+        shadow-xl
+        transition-all
+        duration-300
+        hover:-translate-y-1
+        hover:bg-slate-700
+      "
                 >
                   Admin Login
+                </button>
+              ) : (
+                <button
+                  onClick={onLogout}
+                  className="
+        rounded-2xl
+        bg-red-600
+        px-7
+        py-3
+        text-sm
+        font-bold
+        text-white
+        shadow-xl
+        transition-all
+        duration-300
+        hover:-translate-y-1
+        hover:bg-red-700
+      "
+                >
+                  Logout
                 </button>
               )}
 
               <button
                 onClick={() => setShowLowStock(!showLowStock)}
-                className={
-                  `
-              rounded-2xl
-              px-6
-              py-3
-              text-sm
-              font-bold
-              text-white
-              transition-all
-              duration-300
-              shadow-lg
-              ${
-                showLowStock
-                  ? "bg-red-700 hover:bg-red-800"
-                  : "bg-red-500 hover:bg-red-600"
-              }
-            `
-                }
+                className={`
+      rounded-2xl
+      px-6
+      py-3
+      text-sm
+      font-bold
+      text-white
+      transition-all
+      duration-300
+      shadow-lg
+      ${
+        showLowStock
+          ? "bg-red-700 hover:bg-red-800"
+          : "bg-red-500 hover:bg-red-600"
+      }
+    `}
               >
                 {showLowStock ? "Show All" : "Low Stock"}
               </button>
