@@ -50,7 +50,7 @@ router.post("/", verifyToken, async (req, res) => {
     });
 
     // ✅ STORE LOG
-    await Log.create({
+    await og.create({
       action: "NEW_STOCK_CREATED",
       filament,
       color,
@@ -96,7 +96,7 @@ router.put("/:id", verifyToken, async (req, res) => {
     const addedWeight = newStock - previousStock;
 
     // ✅ STORE LOG
-    await Log.create({
+    await og.create({
       action: "ADD_STOCK",
       filament: updated.filament,
       color: updated.color,
