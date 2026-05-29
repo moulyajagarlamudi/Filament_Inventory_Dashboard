@@ -6,7 +6,8 @@ const mongoose = require("mongoose");
 const { google } = require("googleapis");
 const filamentRoutes = require("./routes/filamentRoutes");
 const verifyToken = require("./middleware/authMiddleware");
-const Log = require("./models/Log");
+const path = require("path");
+const Log = require(path.join(__dirname, "models/Log"));
 const authRoutes = require("./routes/authRoutes");
 
 dotenv.config();
