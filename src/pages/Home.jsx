@@ -643,18 +643,18 @@ export default function Home({
   console.log("inventoryDocs =", inventoryDocs);
   console.log("filamentNames =", filamentNames);
 
-  const availableColors = selectedFilamentName
-    ? [
-        ...new Set([
-          ...(filamentGroups[selectedFilamentName] || []).map(
-            (item) => item.color,
-          ),
-          ...Object.values(inventoryDocs)
-            .filter((item) => item.filament === selectedFilamentName)
-            .map((item) => item.color),
-        ]),
-      ].sort()
-    : [];
+  const availableColors = [
+    ...new Set([
+      // from static groups
+      ...Object.values(filamentGroups)
+        .flat()
+        .map((i) => i.color),
+
+      // from DB inventory
+      ...Object.values(inventoryDocs).map((i) => i.color),
+    ]),
+  ].sort();
+
   console.log("selectedFilamentName =", selectedFilamentName);
   console.log("availableColors =", availableColors);
   console.log("filamentGroups =", filamentGroups[selectedFilamentName]);
