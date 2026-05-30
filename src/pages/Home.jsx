@@ -655,9 +655,9 @@ export default function Home({
         ]),
       ].sort()
     : [];
-  console.log("inventoryDocs =", inventoryDocs);
-  console.log("filamentNames =", filamentNames);
+  console.log("selectedFilamentName =", selectedFilamentName);
   console.log("availableColors =", availableColors);
+  console.log("filamentGroups =", filamentGroups[selectedFilamentName]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
