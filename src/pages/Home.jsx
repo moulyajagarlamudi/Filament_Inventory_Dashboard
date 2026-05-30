@@ -82,7 +82,7 @@ export default function Home({
 
       if (Array.isArray(data)) {
         data.forEach((item) => {
-          const key = `${item.filament.trim()}|${item.color.trim()}`;
+          const key = `${item.filament} ${item.color}`;
           map[key] = item;
         });
       }
@@ -634,22 +634,27 @@ export default function Home({
   };
 
   const filamentNames = [
-    ...new Set(Object.values(inventoryDocs).map((item) => item.filament)),
+    ...new Set([
+      ...Object.keys(filamentGroups),
+      ...Object.values(inventoryDocs).map((item) => item.filament),
+    ]),
   ].sort();
 
   console.log("inventoryDocs =", inventoryDocs);
   console.log("filamentNames =", filamentNames);
 
-  const availableColors = [
-    ...new Set(
-      Object.values(inventoryDocs)
-        .filter(
-          (item) =>
-            !selectedFilamentName || item.filament === selectedFilamentName,
-        )
-        .map((item) => item.color),
-    ),
-  ].sort();
+  const availableColors = selectedFilamentName
+    ? [
+        ...new Set([
+          ...(filamentGroups[selectedFilamentName] || []).map(
+            (item) => item.color,
+          ),
+          ...Object.values(inventoryDocs)
+            .filter((item) => item.filament === selectedFilamentName)
+            .map((item) => item.color),
+        ]),
+      ].sort()
+    : [];
   console.log("inventoryDocs =", inventoryDocs);
   console.log("filamentNames =", filamentNames);
   console.log("availableColors =", availableColors);
