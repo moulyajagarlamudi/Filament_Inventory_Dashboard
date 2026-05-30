@@ -203,12 +203,3 @@ mongoose
   })
   .catch(console.error);
 
-mongoose.connect(mongoUri).then(async () => {
-  console.log("MongoDB connected");
-
-  console.log("DB:", mongoose.connection.db.databaseName);
-
-  const docs = await Filament.find();
-
-  console.log("COUNT:", docs.length);
-});

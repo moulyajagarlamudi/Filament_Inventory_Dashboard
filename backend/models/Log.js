@@ -7,6 +7,10 @@ const logSchema = new mongoose.Schema(
       required: true,
     },
 
+    filament: String,
+    color: String,
+    weight: Number,
+
     adminId: {
       type: String,
       default: "ADMIN",
