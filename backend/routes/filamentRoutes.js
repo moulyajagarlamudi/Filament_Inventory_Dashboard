@@ -12,14 +12,10 @@ const Log = require("../models/Log");
 // ========================================
 router.get("/inventory", async (req, res) => {
   try {
-    const inventory = await Filament.find().sort({
-      createdAt: -1,
-    });
+    const inventory = await Filament.find();
 
     res.json(inventory);
   } catch (err) {
-    console.log("Inventory fetch error:", err);
-
     res.status(500).json({
       error: err.message,
     });
@@ -31,7 +27,13 @@ router.get("/inventory", async (req, res) => {
 // ========================================
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { filament, color, currentStock = 0, usedStock = 0, spools = [] } = req.body;
+    const {
+      filament,
+      color,
+      currentStock = 0,
+      usedStock = 0,
+      spools = [],
+    } = req.body;
 
     // Try to find existing document by filament+color
     const filter = { filament, color };
@@ -40,7 +42,7 @@ router.post("/", verifyToken, async (req, res) => {
 
     if (existing) {
       // Merge spools arrays and recalc stock
-      const mergedSpools = [ ...(existing.spools || []), ...spools ];
+      const mergedSpools = [...(existing.spools || []), ...spools];
       const totalStock = mergedSpools.reduce((s, w) => s + Number(w || 0), 0);
 
       const updated = await Filament.findOneAndUpdate(
@@ -99,7 +101,7 @@ router.post("/", verifyToken, async (req, res) => {
         console.warn("Duplicate key on create; falling back to update/merge");
 
         const existingAfter = await Filament.findOne(filter);
-        const mergedSpools = [ ...(existingAfter.spools || []), ...spools ];
+        const mergedSpools = [...(existingAfter.spools || []), ...spools];
         const totalStock = mergedSpools.reduce((s, w) => s + Number(w || 0), 0);
 
         const updated = await Filament.findOneAndUpdate(
@@ -119,7 +121,8 @@ router.post("/", verifyToken, async (req, res) => {
             action: "ADD_STOCK",
             filament,
             color,
-            weight: (updated.currentStock || 0) - (existingAfter.currentStock || 0),
+            weight:
+              (updated.currentStock || 0) - (existingAfter.currentStock || 0),
           });
         } catch (logErr) {
           console.error("Log create failed (non-fatal):", logErr);

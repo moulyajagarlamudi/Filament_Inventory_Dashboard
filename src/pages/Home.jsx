@@ -69,6 +69,9 @@ export default function Home({
     weight: "",
   });
 
+  const [selectedFilamentName, setSelectedFilamentName] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+
   const fetchInventory = async () => {
     try {
       const res = await fetch(
@@ -143,6 +146,8 @@ export default function Home({
         }
 
         setInventoryDocs(map);
+        console.log("Inventory Data:", inventoryData);
+        console.log("Inventory Map:", map);
       } catch (err) {
         console.log("Auto refresh error:", err);
       }
@@ -564,50 +569,29 @@ export default function Home({
       const color = deleteStock.color.trim();
 
       if (!filament || !color) {
-        alert("Please fill filament and colour");
+        alert("Please select filament and colour");
         return;
       }
 
       const key = `${filament} ${color}`;
-
       const existing = inventoryDocs[key];
 
-      if (!existing) {
+      if (!existing || !existing._id) {
         alert("Stock not found");
         return;
       }
 
-      // 🔥 DELETE ENTIRE FILAMENT
       const token = localStorage.getItem("token");
-      const response = await (realExisting?._id
-        ? fetch(
-            `https://filament-backend.onrender.com/api/filaments/${realExisting._id}`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: token,
-              },
-              body: JSON.stringify({
-                currentStock: totalStock,
-                spools: updatedSpools,
-              }),
-            },
-          )
-        : fetch("https://filament-backend.onrender.com/api/filaments", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token,
-            },
-            body: JSON.stringify({
-              filament: selectedFilament.group,
-              color: selectedFilament.color,
-              currentStock: totalStock,
-              usedStock: 0,
-              spools: updatedSpools,
-            }),
-          }));
+
+      const response = await fetch(
+        `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: token,
+          },
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to delete stock");
@@ -623,30 +607,52 @@ export default function Home({
         weight: "",
       });
 
+      setSelectedFilamentName("");
+      setSelectedColor("");
+
       const logEntry = {
         action: `Deleted ${filament} ${color}`,
         time: new Date().toLocaleString(),
       };
 
-      setLogs((prev) => [logEntry, ...prev]);
-
-      localStorage.setItem(
-        "inventoryLogs",
-        JSON.stringify([logEntry, ...logs]),
-      );
+      setLogs((prev) => {
+        const updated = [logEntry, ...prev];
+        localStorage.setItem("inventoryLogs", JSON.stringify(updated));
+        return updated;
+      });
 
       setSuccessMessage("Filament deleted successfully");
-
       setSuccessPopup(true);
 
       setTimeout(() => {
         setSuccessPopup(false);
       }, 4000);
     } catch (err) {
-      console.log(err);
-      alert("Failed to delete stock");
+      console.error(err);
+      alert(err.message);
     }
   };
+
+  const filamentNames = [
+    ...new Set(Object.values(inventoryDocs).map((item) => item.filament)),
+  ].sort();
+
+  console.log("inventoryDocs =", inventoryDocs);
+  console.log("filamentNames =", filamentNames);
+
+  const availableColors = [
+    ...new Set(
+      Object.values(inventoryDocs)
+        .filter(
+          (item) =>
+            !selectedFilamentName || item.filament === selectedFilamentName,
+        )
+        .map((item) => item.color),
+    ),
+  ].sort();
+  console.log("inventoryDocs =", inventoryDocs);
+  console.log("filamentNames =", filamentNames);
+  console.log("availableColors =", availableColors);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -1344,56 +1350,98 @@ export default function Home({
             <h2 className="text-3xl font-bold text-black">Delete Stock</h2>
 
             <div className="mt-8 space-y-5">
-              <input
-                type="text"
-                placeholder="Filament Name"
-                value={deleteStock.filament}
-                onChange={(e) =>
+              <select
+                value={selectedFilamentName}
+                onChange={(e) => {
+                  setSelectedFilamentName(e.target.value);
+
                   setDeleteStock({
                     ...deleteStock,
                     filament: e.target.value,
-                  })
-                }
+                    color: "",
+                    weight: "",
+                  });
+
+                  setSelectedColor("");
+                }}
                 className="
-            w-full
-            rounded-2xl
-            border
-            border-slate-300
-            bg-white
-            px-5
-            py-4
-            text-lg
-            font-medium
-            text-black
-            caret-black
-            outline-none
-          "
-              />
+    w-full
+    rounded-2xl
+    border
+    border-slate-300
+    bg-white
+    px-5
+    py-4
+    text-lg
+    font-medium
+    text-black
+  "
+              >
+                <option value="">Select Filament</option>
+
+                {filamentNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedColor}
+                onChange={(e) => {
+                  setSelectedColor(e.target.value);
+
+                  setDeleteStock({
+                    ...deleteStock,
+                    filament: selectedFilamentName,
+                    color: e.target.value,
+                    weight: deleteStock.weight,
+                  });
+                }}
+                className="
+    w-full
+    rounded-2xl
+    border
+    border-slate-300
+    bg-white
+    px-5
+    py-4
+    text-lg
+    font-medium
+    text-black
+  "
+              >
+                <option value="">Select Colour</option>
+
+                {availableColors.map((color) => (
+                  <option key={color} value={color}>
+                    {color}
+                  </option>
+                ))}
+              </select>
 
               <input
-                type="text"
-                placeholder="Colour"
-                value={deleteStock.color}
+                type="number"
+                placeholder="Weight in grams"
+                value={deleteStock.weight}
                 onChange={(e) =>
                   setDeleteStock({
                     ...deleteStock,
-                    color: e.target.value,
+                    weight: e.target.value,
                   })
                 }
                 className="
-            w-full
-            rounded-2xl
-            border
-            border-slate-300
-            bg-white
-            px-5
-            py-4
-            text-lg
-            font-medium
-            text-black
-            caret-black
-            outline-none
-          "
+    w-full
+    rounded-2xl
+    border
+    border-slate-300
+    bg-white
+    px-5
+    py-4
+    text-lg
+    font-medium
+    text-black
+  "
               />
             </div>
 
