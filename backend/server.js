@@ -9,6 +9,7 @@ const verifyToken = require("./middleware/authMiddleware");
 const path = require("path");
 const Log = require(path.join(__dirname, "models/Log"));
 const authRoutes = require("./routes/authRoutes");
+const Filament = require("./models/filamentModel");
 // Compatibility shim: some older code referenced `og` instead of `Log`
 global.og = Log;
 
@@ -98,10 +99,7 @@ const auth = new google.auth.GoogleAuth({
 // ✅ DEBUG LOGS
 console.log("JWT:", process.env.JWT_SECRET);
 console.log("ADMIN:", process.env.ADMIN_ID);
-console.log(
-  "MONGO:",
-  process.env.MONGO_URI ? "FOUND" : "MISSING",
-);
+console.log("MONGO:", process.env.MONGO_URI ? "FOUND" : "MISSING");
 
 app.get("/api/filaments", async (req, res) => {
   try {
@@ -170,4 +168,47 @@ app.get("/version", (req, res) => {
 
 app.get("/healthz", (req, res) => {
   res.send("OK");
+});
+
+app.get("/debug-db", async (req, res) => {
+  try {
+    const count = await Filament.countDocuments();
+
+    const docs = await Filament.find().limit(5);
+
+    res.json({
+      count,
+      docs,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+mongoose
+  .connect(mongoUri)
+  .then(async () => {
+    console.log("MongoDB connected");
+
+    const collections = await mongoose.connection.db
+      .listCollections()
+      .toArray();
+
+    console.log(
+      "Collections:",
+      collections.map((c) => c.name),
+    );
+  })
+  .catch(console.error);
+
+mongoose.connect(mongoUri).then(async () => {
+  console.log("MongoDB connected");
+
+  console.log("DB:", mongoose.connection.db.databaseName);
+
+  const docs = await Filament.find();
+
+  console.log("COUNT:", docs.length);
 });
