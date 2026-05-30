@@ -79,7 +79,7 @@ export default function Home({
 
       if (Array.isArray(data)) {
         data.forEach((item) => {
-          const key = `${item.filament} ${item.color}`;
+          const key = `${item.filament.trim()}|${item.color.trim()}`;
           map[key] = item;
         });
       }
@@ -369,34 +369,31 @@ export default function Home({
 
   // ➕ ADD STOCK
   const addStock = async (key) => {
-    const value = Number(inputs[key] || 0);
-
-    if (!value || value <= 0) {
-      setInputError("Please enter grams");
-      return;
-    }
-
-    setInputError("");
-
-    const existing = inventoryDocs[key];
-
     try {
-      let response;
+      const value = Number(inputs[key] || 0);
 
+      if (!value || value <= 0) {
+        setInputError("Please enter grams");
+        return;
+      }
+
+      const existing = inventoryDocs[key];
       const currentSpools = existing?.spools || stocks[key]?.spools || [];
 
       const updatedSpools = [...currentSpools, value];
 
-      const totalStock = updatedSpools.reduce(
-        (sum, weight) => sum + Number(weight),
-        0,
-      );
+      const totalStock = updatedSpools.reduce((sum, w) => sum + Number(w), 0);
 
       const token = localStorage.getItem("token");
 
-      if (existing && existing._id) {
+      let response;
+
+      const realExisting = inventoryDocs[key] || existing;
+
+      if (realExisting?._id) {
+        // UPDATE
         response = await fetch(
-          `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
+          `https://filament-backend.onrender.com/api/filaments/${realExisting._id}`,
           {
             method: "PUT",
             headers: {
@@ -410,9 +407,7 @@ export default function Home({
           },
         );
       } else {
-        const filament = selectedFilament?.group || "";
-        const color = selectedFilament?.color || "";
-
+        // CREATE
         response = await fetch(
           "https://filament-backend.onrender.com/api/filaments",
           {
@@ -422,8 +417,8 @@ export default function Home({
               Authorization: token,
             },
             body: JSON.stringify({
-              filament,
-              color,
+              filament: selectedFilament.group,
+              color: selectedFilament.color,
               currentStock: totalStock,
               usedStock: 0,
               spools: updatedSpools,
@@ -431,39 +426,39 @@ export default function Home({
           },
         );
       }
+      // 🔥 IMPORTANT FIX
+      if (!response) {
+        throw new Error("No response from server");
+      }
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to save stock");
+        throw new Error(result?.error || "Failed to save stock");
       }
 
       await fetchInventory();
 
       const logEntry = {
-        action: `Added ${value}g to ${selectedFilament?.group || ""} ${selectedFilament?.color || ""}`,
+        action: `Added ${value}g to ${selectedFilament.group} ${selectedFilament.color}`,
         time: new Date().toLocaleString(),
       };
 
-      setLogs((prev) => [logEntry, ...prev]);
-
-      setSuccessMessage(`${value}g spool added successfully`);
-
-      setSuccessPopup(true);
-
-      setTimeout(() => {
-        setSuccessPopup(false);
-      }, 5000);
-
-      setInputs((prev) => ({
-        ...prev,
-        [key]: "",
-      }));
+      setLogs((prev) => {
+        const updated = [logEntry, ...prev];
+        localStorage.setItem("inventoryLogs", JSON.stringify(updated));
+        return updated;
+      });
 
       setSelectedFilament(null);
+      setInputs((prev) => ({ ...prev, [key]: "" }));
+
+      setSuccessMessage("Stock updated");
+      setSuccessPopup(true);
+      setTimeout(() => setSuccessPopup(false), 3000);
     } catch (err) {
       console.error("Stock save error:", err);
-      setInputError(err.message || "Failed to save stock");
+      setInputError(err.message);
     }
   };
 
@@ -538,13 +533,17 @@ export default function Home({
         weight: "",
       });
 
-      setLogs((prev) => [
-        {
-          action: `Created new stock ${filament} ${color} (${weight}g)`,
-          time: new Date().toLocaleString(),
-        },
-        ...prev,
-      ]);
+      const logEntry = {
+        action: `Created new stock ${filament} ${color} (${weight}g)`,
+        time: new Date().toLocaleString(),
+      };
+
+      setLogs((prev) => [logEntry, ...prev]);
+
+      localStorage.setItem(
+        "inventoryLogs",
+        JSON.stringify([logEntry, ...logs]),
+      );
 
       setSuccessMessage("New stock added successfully");
 
@@ -580,15 +579,35 @@ export default function Home({
 
       // 🔥 DELETE ENTIRE FILAMENT
       const token = localStorage.getItem("token");
-      const response = await fetch(
-        `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: token,
-          },
-        },
-      );
+      const response = await (realExisting?._id
+        ? fetch(
+            `https://filament-backend.onrender.com/api/filaments/${realExisting._id}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: token,
+              },
+              body: JSON.stringify({
+                currentStock: totalStock,
+                spools: updatedSpools,
+              }),
+            },
+          )
+        : fetch("https://filament-backend.onrender.com/api/filaments", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token,
+            },
+            body: JSON.stringify({
+              filament: selectedFilament.group,
+              color: selectedFilament.color,
+              currentStock: totalStock,
+              usedStock: 0,
+              spools: updatedSpools,
+            }),
+          }));
 
       if (!response.ok) {
         throw new Error("Failed to delete stock");
@@ -604,23 +623,16 @@ export default function Home({
         weight: "",
       });
 
-      setLogs((prev) => [
-        {
-          action: `Deleted ${filament} ${color}`,
-          time: new Date().toLocaleString(),
-        },
-        ...prev,
-      ]);
+      const logEntry = {
+        action: `Deleted ${filament} ${color}`,
+        time: new Date().toLocaleString(),
+      };
+
+      setLogs((prev) => [logEntry, ...prev]);
 
       localStorage.setItem(
         "inventoryLogs",
-        JSON.stringify([
-          {
-            action: `Added ${value}g to ${key}`,
-            time: new Date().toLocaleString(),
-          },
-          ...logs,
-        ]),
+        JSON.stringify([logEntry, ...logs]),
       );
 
       setSuccessMessage("Filament deleted successfully");

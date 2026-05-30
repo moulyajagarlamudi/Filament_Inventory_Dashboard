@@ -7,7 +7,6 @@ const Filament = require("../models/filamentModel");
 
 const Log = require("../models/Log");
 
-
 // ========================================
 // GET INVENTORY
 // ========================================
@@ -27,37 +26,110 @@ router.get("/inventory", async (req, res) => {
   }
 });
 
-
 // ========================================
 // CREATE NEW STOCK
 // ========================================
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const {
-      filament,
-      color,
-      currentStock,
-      usedStock,
-      spools,
-    } = req.body;
+    const { filament, color, currentStock = 0, usedStock = 0, spools = [] } = req.body;
 
-    const newFilament = await Filament.create({
-      filament,
-      color,
-      currentStock,
-      usedStock,
-      spools,
-    });
+    // Try to find existing document by filament+color
+    const filter = { filament, color };
 
-    // ✅ STORE LOG
-    await og.create({
-      action: "NEW_STOCK_CREATED",
-      filament,
-      color,
-      weight: currentStock,
-    });
+    const existing = await Filament.findOne(filter);
 
-    res.json(newFilament);
+    if (existing) {
+      // Merge spools arrays and recalc stock
+      const mergedSpools = [ ...(existing.spools || []), ...spools ];
+      const totalStock = mergedSpools.reduce((s, w) => s + Number(w || 0), 0);
+
+      const updated = await Filament.findOneAndUpdate(
+        filter,
+        {
+          $set: {
+            spools: mergedSpools,
+            usedStock: usedStock || existing.usedStock,
+            currentStock: totalStock,
+          },
+        },
+        { new: true },
+      );
+
+      // ✅ SAFE LOG
+      try {
+        await Log.create({
+          action: "ADD_STOCK",
+          filament,
+          color,
+          weight: (updated.currentStock || 0) - (existing.currentStock || 0),
+        });
+      } catch (logErr) {
+        console.error("Log create failed (non-fatal):", logErr);
+      }
+
+      return res.json(updated);
+    }
+
+    // Create new document when none exists. If a race causes duplicate-key,
+    // fallback to updating the existing document instead of failing.
+    try {
+      const newFilament = await Filament.create({
+        filament,
+        color,
+        currentStock,
+        usedStock,
+        spools,
+      });
+
+      try {
+        await Log.create({
+          action: "NEW_STOCK_CREATED",
+          filament,
+          color,
+          weight: currentStock,
+        });
+      } catch (logErr) {
+        console.error("Log create failed (non-fatal):", logErr);
+      }
+
+      return res.json(newFilament);
+    } catch (createErr) {
+      // Handle duplicate key race: merge into existing doc
+      if (createErr && createErr.code === 11000) {
+        console.warn("Duplicate key on create; falling back to update/merge");
+
+        const existingAfter = await Filament.findOne(filter);
+        const mergedSpools = [ ...(existingAfter.spools || []), ...spools ];
+        const totalStock = mergedSpools.reduce((s, w) => s + Number(w || 0), 0);
+
+        const updated = await Filament.findOneAndUpdate(
+          filter,
+          {
+            $set: {
+              spools: mergedSpools,
+              usedStock: usedStock || existingAfter.usedStock,
+              currentStock: totalStock,
+            },
+          },
+          { new: true },
+        );
+
+        try {
+          await Log.create({
+            action: "ADD_STOCK",
+            filament,
+            color,
+            weight: (updated.currentStock || 0) - (existingAfter.currentStock || 0),
+          });
+        } catch (logErr) {
+          console.error("Log create failed (non-fatal):", logErr);
+        }
+
+        return res.json(updated);
+      }
+
+      throw createErr;
+    }
   } catch (err) {
     console.log("Create stock error:", err);
 
@@ -66,7 +138,6 @@ router.post("/", verifyToken, async (req, res) => {
     });
   }
 });
-
 
 // ========================================
 // UPDATE STOCK
@@ -83,25 +154,25 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     const previousStock = existing.currentStock || 0;
 
-    const updated = await Filament.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-      }
-    );
+    const updated = await Filament.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
 
     const newStock = updated.currentStock || 0;
 
     const addedWeight = newStock - previousStock;
 
     // ✅ STORE LOG
-    await og.create({
-      action: "ADD_STOCK",
-      filament: updated.filament,
-      color: updated.color,
-      weight: addedWeight,
-    });
+    try {
+      await Log.create({
+        action: "ADD_STOCK",
+        filament: updated.filament,
+        color: updated.color,
+        weight: addedWeight,
+      });
+    } catch (logErr) {
+      console.error("Log create failed (non-fatal):", logErr);
+    }
 
     res.json(updated);
   } catch (err) {
@@ -112,7 +183,6 @@ router.put("/:id", verifyToken, async (req, res) => {
     });
   }
 });
-
 
 // ========================================
 // DELETE FILAMENT
@@ -130,12 +200,16 @@ router.delete("/:id", verifyToken, async (req, res) => {
     await Filament.findByIdAndDelete(req.params.id);
 
     // ✅ STORE LOG
-    await Log.create({
-      action: "DELETE_STOCK",
-      filament: existing.filament,
-      color: existing.color,
-      weight: existing.currentStock,
-    });
+    try {
+      await Log.create({
+        action: "DELETE_STOCK",
+        filament: existing.filament,
+        color: existing.color,
+        weight: existing.currentStock,
+      });
+    } catch (logErr) {
+      console.error("Log create failed (non-fatal):", logErr);
+    }
 
     res.json({
       success: true,

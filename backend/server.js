@@ -9,6 +9,8 @@ const verifyToken = require("./middleware/authMiddleware");
 const path = require("path");
 const Log = require(path.join(__dirname, "models/Log"));
 const authRoutes = require("./routes/authRoutes");
+// Compatibility shim: some older code referenced `og` instead of `Log`
+global.og = Log;
 
 dotenv.config();
 
@@ -85,28 +87,6 @@ app.post("/api/admin/login", async (req, res) => {
 });
 
 app.use("/api/filaments", filamentRoutes);
-
-// Direct create endpoint to ensure POST /api/filaments returns JSON
-// (keeps compatibility and helps clients that hit the root path)
-try {
-  const Filament = require("./models/filamentModel");
-
-  app.post("/api/filaments", verifyToken, async (req, res) => {
-    try {
-      const newFilament = await Filament.create(req.body);
-
-      res.json(newFilament);
-    } catch (err) {
-      console.error("Direct create error:", err);
-
-      res.status(500).json({
-        error: err.message,
-      });
-    }
-  });
-} catch (e) {
-  console.warn("Filament model not available to create directly:", e.message);
-}
 
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.RENDER

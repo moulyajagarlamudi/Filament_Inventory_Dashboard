@@ -47,29 +47,29 @@ export default function AdminDashboard() {
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-[#f8fafc]">
-        <Home
-          isAdmin={true}
-          showLowStockOnly={showLowStockOnly}
-          setShowLowStockOnly={setShowLowStockOnly}
-          onLogout={handleLogout}
-        />
+  <>
+    <div className="min-h-screen bg-[#f8fafc]">
+      <Home
+        isAdmin={true}
+        showLowStockOnly={showLowStockOnly}
+        setShowLowStockOnly={setShowLowStockOnly}
+        onLogout={handleLogout}
+      />
 
-        {/* SCROLL BUTTON */}
-        {showScroll && (
-          <button
-            onClick={() => {
-              if (isBottom) {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              } else {
-                window.scrollTo({
-                  top: document.body.scrollHeight,
-                  behavior: "smooth",
-                });
-              }
-            }}
-            className="
+      {/* SCROLL BUTTON */}
+      {showScroll && (
+        <button
+          onClick={() => {
+            if (isBottom) {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+              window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: "smooth",
+              });
+            }
+          }}
+          className="
             fixed
             bottom-8
             right-8
@@ -88,11 +88,11 @@ export default function AdminDashboard() {
             hover:scale-110
             animate-bounce
           "
-          >
-            {isBottom ? "↑" : "↓"}
-          </button>
-        )}
-      </div>
-    </>
-  );
+        >
+          {isBottom ? "↑" : "↓"}
+        </button>
+      )}
+    </div>
+  </>
+);
 }
