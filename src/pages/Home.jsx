@@ -33,11 +33,7 @@ export default function Home({
   onLogout,
 }) {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState(() => {
-    const savedLogs = localStorage.getItem("inventoryLogs");
-
-    return savedLogs ? JSON.parse(savedLogs) : [];
-  });
+  const [logs, setLogs] = useState([]);
   const [internalShowLowStockOnly, setInternalShowLowStockOnly] =
     useState(false);
   const showLowStock =
@@ -110,6 +106,24 @@ export default function Home({
       setExtraGroups(extras);
     } catch (err) {
       console.log("Inventory fetch error:", err);
+    }
+  };
+
+  // Fetch logs from backend
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch(
+        "https://filament-backend.onrender.com/api/logs",
+      );
+      if (!res.ok) {
+        console.error("Failed to fetch logs", res.status);
+        return;
+      }
+
+      const data = await res.json();
+      setLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch logs error:", err);
     }
   };
 
@@ -365,11 +379,7 @@ export default function Home({
   }, []);
 
   useEffect(() => {
-    const savedLogs = localStorage.getItem("inventoryLogs");
-
-    if (savedLogs) {
-      setLogs(JSON.parse(savedLogs));
-    }
+    fetchLogs();
   }, []);
 
   // ➕ ADD STOCK
@@ -444,16 +454,28 @@ export default function Home({
 
       await fetchInventory();
 
-      const logEntry = {
-        action: `Added ${value}g to ${selectedFilament.group} ${selectedFilament.color}`,
-        time: new Date().toLocaleString(),
-      };
+      // POST log to backend
+      try {
+        await fetch("https://filament-backend.onrender.com/api/logs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token,
+          },
+          body: JSON.stringify({
+            action: "ADD",
+            filament: selectedFilament.group,
+            color: selectedFilament.color,
+            weight: value,
+            time: new Date().toISOString(),
+          }),
+        });
+      } catch (logErr) {
+        console.error("Log post failed:", logErr);
+      }
 
-      setLogs((prev) => {
-        const updated = [logEntry, ...prev];
-        localStorage.setItem("inventoryLogs", JSON.stringify(updated));
-        return updated;
-      });
+      // refresh logs from DB
+      await fetchLogs();
 
       setSelectedFilament(null);
       setInputs((prev) => ({ ...prev, [key]: "" }));
@@ -538,17 +560,27 @@ export default function Home({
         weight: "",
       });
 
-      const logEntry = {
-        action: `Created new stock ${filament} ${color} (${weight}g)`,
-        time: new Date().toLocaleString(),
-      };
+      // Post log to backend
+      try {
+        await fetch("https://filament-backend.onrender.com/api/logs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token,
+          },
+          body: JSON.stringify({
+            action: "ADD",
+            filament,
+            color,
+            weight,
+            time: new Date().toISOString(),
+          }),
+        });
 
-      setLogs((prev) => [logEntry, ...prev]);
-
-      localStorage.setItem(
-        "inventoryLogs",
-        JSON.stringify([logEntry, ...logs]),
-      );
+        await fetchLogs();
+      } catch (logErr) {
+        console.error("Failed to post new-stock log:", logErr);
+      }
 
       setSuccessMessage("New stock added successfully");
 
@@ -583,6 +615,29 @@ export default function Home({
 
       const token = localStorage.getItem("token");
 
+      // compute total weight before deletion
+      const totalWeight = existing?.currentStock || 0;
+
+      // post delete log to backend
+      try {
+        await fetch("https://filament-backend.onrender.com/api/logs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token,
+          },
+          body: JSON.stringify({
+            action: "DELETE",
+            filament,
+            color,
+            weight: totalWeight,
+            time: new Date().toISOString(),
+          }),
+        });
+      } catch (logErr) {
+        console.error("Failed to post delete log:", logErr);
+      }
+
       const response = await fetch(
         `https://filament-backend.onrender.com/api/filaments/${existing._id}`,
         {
@@ -610,16 +665,8 @@ export default function Home({
       setSelectedFilamentName("");
       setSelectedColor("");
 
-      const logEntry = {
-        action: `Deleted ${filament} ${color}`,
-        time: new Date().toLocaleString(),
-      };
-
-      setLogs((prev) => {
-        const updated = [logEntry, ...prev];
-        localStorage.setItem("inventoryLogs", JSON.stringify(updated));
-        return updated;
-      });
+      // refresh logs from DB
+      await fetchLogs();
 
       setSuccessMessage("Filament deleted successfully");
       setSuccessPopup(true);
@@ -1098,9 +1145,17 @@ export default function Home({
             shadow-sm
           "
               >
-                <p className="font-semibold text-slate-800">{log.action}</p>
+                <p className="font-semibold text-slate-800">
+                  {/ADD/i.test(log.action)
+                    ? `Added ${log.weight}g to ${log.filament} ${log.color}`
+                    : /DELETE/i.test(log.action)
+                    ? `Deleted ${log.filament} ${log.color} (${log.weight}g removed)`
+                    : log.action}
+                </p>
 
-                <p className="text-sm text-slate-400">{log.time}</p>
+                <p className="text-sm text-slate-400">
+                  {log.time ? new Date(log.time).toLocaleString() : ""}
+                </p>
               </div>
             ))
           )}

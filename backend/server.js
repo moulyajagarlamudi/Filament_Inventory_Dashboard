@@ -54,6 +54,26 @@ app.get("/api/logs", async (req, res) => {
   }
 });
 
+// POST LOG (from frontend/admin actions)
+app.post("/api/logs", verifyToken, async (req, res) => {
+  try {
+    const { action, filament, color, weight, time } = req.body;
+
+    const doc = await Log.create({
+      action,
+      filament,
+      color,
+      weight,
+      time: time ? new Date(time) : undefined,
+    });
+
+    res.json(doc);
+  } catch (err) {
+    console.error("Create log error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/admin/login", async (req, res) => {
   try {
     const { adminId, password } = req.body;
