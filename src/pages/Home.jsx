@@ -633,27 +633,61 @@ export default function Home({
     }
   };
 
+  const normalizeFilamentName = (value) =>
+    value
+      ?.toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s*\+\s*/g, "+")
+      .replace(/\s+/g, " ");
+
+  const colorsByFilament = {};
+  Object.values(inventoryDocs).forEach((item) => {
+    const key = normalizeFilamentName(item.filament);
+    if (!key) return;
+
+    if (!colorsByFilament[key]) {
+      colorsByFilament[key] = new Set();
+    }
+
+    if (item.color) {
+      colorsByFilament[key].add(item.color);
+    }
+  });
+
   const filamentNames = [
     ...new Set([
       ...Object.keys(filamentGroups),
-      ...Object.values(inventoryDocs).map((item) => item.filament),
+      ...Object.values(inventoryDocs).map((item) => item.filament?.trim()),
     ]),
   ].sort();
 
   console.log("inventoryDocs =", inventoryDocs);
   console.log("filamentNames =", filamentNames);
 
-  const availableColors = [
-    ...new Set([
-      // from static groups
-      ...Object.values(filamentGroups)
-        .flat()
-        .map((i) => i.color),
+  const normalizedSelectedFilamentName = normalizeFilamentName(
+    selectedFilamentName,
+  );
 
-      // from DB inventory
-      ...Object.values(inventoryDocs).map((i) => i.color),
-    ]),
-  ].sort();
+  const availableColors = selectedFilamentName
+    ? [
+        ...new Set([
+          ...Object.entries(filamentGroups)
+            .filter(
+              ([groupName]) =>
+                normalizeFilamentName(groupName) ===
+                normalizedSelectedFilamentName,
+            )
+            .flatMap(([, items]) => items.map((i) => i.color)),
+          ...Array.from(colorsByFilament[normalizedSelectedFilamentName] || []),
+        ]),
+      ].sort()
+    : [
+        ...new Set([
+          ...Object.values(filamentGroups).flat().map((i) => i.color),
+          ...Object.values(inventoryDocs).map((i) => i.color),
+        ]),
+      ].sort();
 
   console.log("selectedFilamentName =", selectedFilamentName);
   console.log("availableColors =", availableColors);
