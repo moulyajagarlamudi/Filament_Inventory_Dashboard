@@ -11,8 +11,13 @@ const authRoutes = require("./routes/authRoutes");
 const verifyToken = require("./middleware/authMiddleware");
 const Log = require(path.join(__dirname, "models/Log"));
 const Filament = require("./models/filamentModel");
-const SyncState = require("./models/SyncState");
-const { subtractSpoolWeight, getStaticInitialSpools } = require("./utils/spoolManager");
+const {
+  subtractSpoolWeight,
+  getStaticInitialSpools,
+  getStaticSpoolMap,
+  getStaticCasing,
+} = require("./utils/spoolManager");
+
 
 
 global.og = Log;
@@ -53,86 +58,104 @@ const auth = new google.auth.GoogleAuth({
 });
 
 
-// Incremental Google Sheets Sync Helper
+// Google Sheets Full Auto-Sync Helper
+// Reads all active rows from Google Sheet to ensure new entries, edited entries, AND removed entries automatically update the website.
 const syncGoogleSheetIncremental = async () => {
   try {
-    let syncState = await SyncState.findOne({ key: "google_sheet_sync" });
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
 
-    const dbCount = await Filament.countDocuments();
-    if (!syncState) {
-      syncState = await SyncState.create({
-        key: "google_sheet_sync",
-        lastProcessedRow: 1, // Row 1 is header, start processing from row 2!
-      });
-      console.log(`[SYNC] Initialized SyncState with lastProcessedRow = 1`);
-    } else if (dbCount === 0 && syncState.lastProcessedRow > 1) {
-      // Database is empty (or was reset); reset lastProcessedRow to 1 to process all existing rows once
-      syncState.lastProcessedRow = 1;
-      await syncState.save();
-      console.log(`[SYNC] DB is empty; reset lastProcessedRow to 1 to sync all existing Google Sheet rows.`);
-    }
-
-    const startRow = syncState.lastProcessedRow + 1;
+    // Fetch all active usage rows starting from row 2 (row 1 is header)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `Sheet1!A${startRow}:L`,
+      range: "Sheet1!A2:L",
       majorDimension: "ROWS",
     });
 
-    const newRows = response.data.values || [];
-    if (newRows.length === 0) {
-      return;
-    }
+    const rows = response.data.values || [];
 
-    console.log(`[SYNC] Processing ${newRows.length} row(s) starting from row ${startRow}`);
-
-    for (let i = 0; i < newRows.length; i++) {
-      const row = newRows[i];
-      const rowNum = startRow + i;
-
-      // Row format:
-      // 0: S.No., 1: Date, 2: Username, 3: Part Name, 4: Project By, 5: Quantity,
-      // 6: Filament Type, 7: Filament Color, 8: Filament Usage, 9: Total Filament Usage, 10: Print Time, 11: Printer
-      const filamentType = (row[6] || "").trim();
-      const filamentColor = (row[7] || "").trim();
+    // Map total usage by key "filament|color"
+    const usageMap = {};
+    for (const row of rows) {
+      const fType = (row[6] || "").trim();
+      const fColor = (row[7] || "").trim();
       const weight = parseFloat(row[9]) > 0 ? parseFloat(row[9]) : (parseFloat(row[8]) > 0 ? parseFloat(row[8]) : 0);
 
-      if (filamentType && filamentColor && weight > 0) {
-        let item = await Filament.findOne({
-          filament: { $regex: new RegExp("^" + filamentType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
-          color: { $regex: new RegExp("^" + filamentColor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
-        });
-
-        if (!item) {
-          const initialSpools = getStaticInitialSpools(filamentType, filamentColor);
-          item = await Filament.create({
-            filament: filamentType,
-            color: filamentColor,
-            currentStock: initialSpools.reduce((sum, w) => sum + w, 0),
-            usedStock: 0,
-            spools: initialSpools,
-          });
-          console.log(`[SYNC] Initialized DB doc for ${filamentType} ${filamentColor} with spools [${initialSpools.join(", ")}]`);
+      if (fType && fColor && weight > 0) {
+        const key = `${fType.toLowerCase()}|${fColor.toLowerCase()}`;
+        if (!usageMap[key]) {
+          usageMap[key] = 0;
         }
-
-        const currentSpools = item.spools || [];
-        const { spools: updatedSpools, totalStock } = subtractSpoolWeight(currentSpools, weight);
-        await Filament.findByIdAndUpdate(item._id, {
-          $set: { spools: updatedSpools, currentStock: totalStock },
-        });
-        console.log(`[SYNC] Row ${rowNum}: Deducted ${weight}g from ${filamentType} ${filamentColor}`);
+        usageMap[key] += weight;
       }
     }
 
-    syncState.lastProcessedRow = startRow + newRows.length - 1;
-    await syncState.save();
-    console.log(`[SYNC] Successfully processed up to row ${syncState.lastProcessedRow}`);
+    // Retrieve existing DB documents
+    const existingDocs = await Filament.find();
+    const docMap = {};
+    existingDocs.forEach((doc) => {
+      const key = `${doc.filament.toLowerCase().trim()}|${doc.color.toLowerCase().trim()}`;
+      docMap[key] = doc;
+    });
+
+    const staticGroups = getStaticSpoolMap();
+    const allKeys = new Set([...Object.keys(docMap)]);
+
+    for (const groupName of Object.keys(staticGroups)) {
+      for (const colorName of Object.keys(staticGroups[groupName])) {
+        allKeys.add(`${groupName.toLowerCase().trim()}|${colorName.toLowerCase().trim()}`);
+      }
+    }
+
+    for (const key of allKeys) {
+      const [fTypeLower, fColorLower] = key.split("|");
+      const existingDoc = docMap[key];
+
+      let filamentName = existingDoc ? existingDoc.filament : "";
+      let colorName = existingDoc ? existingDoc.color : "";
+
+      if (!filamentName || !colorName) {
+        const staticMatch = getStaticCasing(fTypeLower, fColorLower);
+        filamentName = staticMatch.filament || fTypeLower;
+        colorName = staticMatch.color || fColorLower;
+      }
+
+      // Determine base spools
+      let baseSpools = [];
+      if (existingDoc && Array.isArray(existingDoc.baseSpools) && existingDoc.baseSpools.length > 0) {
+        baseSpools = existingDoc.baseSpools.map(Number).filter((w) => w > 0);
+      } else {
+        baseSpools = getStaticInitialSpools(filamentName, colorName);
+      }
+
+      const totalUsage = usageMap[key] || 0;
+      const { spools: updatedSpools, totalStock } = subtractSpoolWeight(baseSpools, totalUsage);
+
+      if (existingDoc) {
+        await Filament.findByIdAndUpdate(existingDoc._id, {
+          $set: {
+            spools: updatedSpools,
+            currentStock: totalStock,
+            usedStock: totalUsage,
+            baseSpools: baseSpools,
+          },
+        });
+      } else {
+        await Filament.create({
+          filament: filamentName,
+          color: colorName,
+          spools: updatedSpools,
+          currentStock: totalStock,
+          usedStock: totalUsage,
+          baseSpools: baseSpools,
+        });
+      }
+    }
   } catch (err) {
-    console.error("[SYNC] Incremental sync error:", err.message);
+    console.error("[SYNC ERROR]", err.message);
   }
 };
+
 
 
 // Background Google Sheet Auto-Sync (Every 5 seconds)

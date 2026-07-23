@@ -128,8 +128,28 @@ function getStaticInitialSpools(filament, color) {
   return [1000];
 }
 
+function getStaticSpoolMap() {
+  return staticSpoolMap;
+}
+
+function getStaticCasing(fNorm, cNorm) {
+  for (const groupKey of Object.keys(staticSpoolMap)) {
+    if (groupKey.toLowerCase().trim() === fNorm) {
+      for (const colorKey of Object.keys(staticSpoolMap[groupKey])) {
+        if (colorKey.toLowerCase().trim() === cNorm) {
+          return { filament: groupKey, color: colorKey };
+        }
+      }
+    }
+  }
+  return { filament: fNorm, color: cNorm };
+}
+
 module.exports = {
   subtractSpoolWeight,
   getStaticInitialSpools,
+  getStaticSpoolMap,
+  getStaticCasing,
 };
+
 

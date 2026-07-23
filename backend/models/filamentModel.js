@@ -27,6 +27,13 @@ const filamentSchema = new mongoose.Schema(
       type: [mongoose.Schema.Types.Mixed],
       default: [],
     },
+
+    // ✅ BASE SPOOLS BEFORE GOOGLE SHEET USAGE DEDUCTIONS
+    baseSpools: {
+      type: [Number],
+      default: undefined,
+    },
+
   },
   {
     timestamps: true,

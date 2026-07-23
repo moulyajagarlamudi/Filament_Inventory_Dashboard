@@ -221,21 +221,24 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     if (existing) {
-      // Read existing spools from DB — NEVER overwrite, always append
-      // If DB spools are empty (e.g. first-time entry), fall back to existingSpools sent by frontend (from static data)
+      let currentBase = Array.isArray(existing.baseSpools) && existing.baseSpools.length > 0
+        ? existing.baseSpools
+        : getStaticInitialSpools(existing.filament, existing.color);
+      const nextBase = [...currentBase, newSpoolWeight];
+
       let currentSpools = normalizeSpools(existing.spools, existing.currentStock);
       if (currentSpools.length === 0 && existingSpools.length > 0) {
         currentSpools = existingSpools.map(Number).filter((w) => w > 0);
       }
-      const nextSpools = [...currentSpools, newSpoolWeight]; // ALWAYS APPEND A NEW SPOOL!
+      const nextSpools = [...currentSpools, newSpoolWeight];
       const totalStock = nextSpools.reduce((sum, w) => sum + Number(w || 0), 0);
 
-      // Use findByIdAndUpdate (safe ObjectId lookup) with explicit $set to prevent full replacement
       const updated = await Filament.findByIdAndUpdate(
         existing._id,
         {
           $set: {
             spools: nextSpools,
+            baseSpools: nextBase,
             usedStock: usedStock || existing.usedStock,
             currentStock: totalStock,
           },
@@ -262,8 +265,6 @@ router.post("/", verifyToken, async (req, res) => {
       return res.json(updated);
     }
 
-    // Create new document when none exists
-    // Use existingSpools from frontend (static data) as the base, then append the new spool
     const baseSpools = existingSpools.map(Number).filter((w) => w > 0);
     const initialSpools = [...baseSpools, newSpoolWeight];
     const initialStock = initialSpools.reduce((sum, w) => sum + w, 0);
@@ -274,7 +275,9 @@ router.post("/", verifyToken, async (req, res) => {
       currentStock: initialStock,
       usedStock,
       spools: initialSpools,
+      baseSpools: initialSpools,
     });
+
 
     try {
       await Log.create({
