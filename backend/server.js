@@ -218,7 +218,12 @@ process.on("unhandledRejection", (err) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // Run initial Google Sheet sync immediately on server start
+  syncGoogleSheetIncremental().catch((err) =>
+    console.error("[STARTUP SYNC ERROR]", err)
+  );
 });
+
 
 app.get("/version", (req, res) => {
   res.send("NEW BACKEND VERSION");
