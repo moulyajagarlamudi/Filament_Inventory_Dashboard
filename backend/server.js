@@ -47,10 +47,11 @@ if (mongoUri) {
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.RENDER
     ? "/etc/secrets/credentials.json"
-    : "credentials.json",
+    : path.join(__dirname, "credentials.json"),
   // Full spreadsheet access (read & write) for appending rows
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
+
 
 // Incremental Google Sheets Sync Helper
 const syncGoogleSheetIncremental = async () => {
@@ -59,19 +60,18 @@ const syncGoogleSheetIncremental = async () => {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
 
+    const dbCount = await Filament.countDocuments();
     if (!syncState) {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: "Sheet1!A:L",
-        majorDimension: "ROWS",
-      });
-      const rows = response.data.values || [];
       syncState = await SyncState.create({
         key: "google_sheet_sync",
-        lastProcessedRow: rows.length > 0 ? rows.length : 1,
+        lastProcessedRow: 1, // Row 1 is header, start processing from row 2!
       });
-      console.log(`[SYNC] Initialized lastProcessedRow to ${syncState.lastProcessedRow}`);
-      return;
+      console.log(`[SYNC] Initialized SyncState with lastProcessedRow = 1`);
+    } else if (dbCount === 0 && syncState.lastProcessedRow > 1) {
+      // Database is empty (or was reset); reset lastProcessedRow to 1 to process all existing rows once
+      syncState.lastProcessedRow = 1;
+      await syncState.save();
+      console.log(`[SYNC] DB is empty; reset lastProcessedRow to 1 to sync all existing Google Sheet rows.`);
     }
 
     const startRow = syncState.lastProcessedRow + 1;
@@ -86,15 +86,18 @@ const syncGoogleSheetIncremental = async () => {
       return;
     }
 
-    console.log(`[SYNC] Found ${newRows.length} new row(s) to process starting at row ${startRow}`);
+    console.log(`[SYNC] Processing ${newRows.length} row(s) starting from row ${startRow}`);
 
-    for (const row of newRows) {
+    for (let i = 0; i < newRows.length; i++) {
+      const row = newRows[i];
+      const rowNum = startRow + i;
+
       // Row format:
       // 0: S.No., 1: Date, 2: Username, 3: Part Name, 4: Project By, 5: Quantity,
       // 6: Filament Type, 7: Filament Color, 8: Filament Usage, 9: Total Filament Usage, 10: Print Time, 11: Printer
-      const filamentType = (row[6] || row[5] || "").trim();
-      const filamentColor = (row[7] || row[6] || "").trim();
-      const weight = Number(row[9] || row[8] || 0);
+      const filamentType = (row[6] || "").trim();
+      const filamentColor = (row[7] || "").trim();
+      const weight = parseFloat(row[9]) > 0 ? parseFloat(row[9]) : (parseFloat(row[8]) > 0 ? parseFloat(row[8]) : 0);
 
       if (filamentType && filamentColor && weight > 0) {
         let item = await Filament.findOne({
@@ -111,7 +114,7 @@ const syncGoogleSheetIncremental = async () => {
             usedStock: 0,
             spools: initialSpools,
           });
-          console.log(`[SYNC] Initialized new DB doc for ${filamentType} ${filamentColor} with spools [${initialSpools.join(", ")}]`);
+          console.log(`[SYNC] Initialized DB doc for ${filamentType} ${filamentColor} with spools [${initialSpools.join(", ")}]`);
         }
 
         const currentSpools = item.spools || [];
@@ -119,17 +122,18 @@ const syncGoogleSheetIncremental = async () => {
         await Filament.findByIdAndUpdate(item._id, {
           $set: { spools: updatedSpools, currentStock: totalStock },
         });
-        console.log(`[SYNC] Deducted ${weight}g from ${filamentType} ${filamentColor}`);
+        console.log(`[SYNC] Row ${rowNum}: Deducted ${weight}g from ${filamentType} ${filamentColor}`);
       }
-
     }
 
-    syncState.lastProcessedRow += newRows.length;
+    syncState.lastProcessedRow = startRow + newRows.length - 1;
     await syncState.save();
+    console.log(`[SYNC] Successfully processed up to row ${syncState.lastProcessedRow}`);
   } catch (err) {
     console.error("[SYNC] Incremental sync error:", err.message);
   }
 };
+
 
 // Background Google Sheet Auto-Sync (Every 5 seconds)
 setInterval(() => {
@@ -239,3 +243,9 @@ app.get("/debug-db", async (req, res) => {
     });
   }
 });
+
+module.exports = {
+  syncGoogleSheetIncremental,
+};
+
+
