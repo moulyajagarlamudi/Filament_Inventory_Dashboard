@@ -1,7 +1,8 @@
 const express = require("express");
 const { google } = require("googleapis");
 const verifyToken = require("../middleware/authMiddleware");
-const { subtractSpoolWeight } = require("../utils/spoolManager");
+const { subtractSpoolWeight, getStaticInitialSpools } = require("../utils/spoolManager");
+
 
 const router = express.Router();
 
@@ -440,15 +441,17 @@ router.post("/delete-stock", async (req, res) => {
     });
 
     if (!existing) {
-      // Initialize doc if missing
+      // Initialize doc if missing using static initial spools
+      const initialSpools = getStaticInitialSpools(safeFilament, safeColor);
       existing = await Filament.create({
         filament: safeFilament,
         color: safeColor,
-        currentStock: 1000,
+        currentStock: initialSpools.reduce((sum, w) => sum + w, 0),
         usedStock: 0,
-        spools: [1000],
+        spools: initialSpools,
       });
     }
+
 
     const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
     const { spools: updatedSpools, totalStock } = subtractSpoolWeight(

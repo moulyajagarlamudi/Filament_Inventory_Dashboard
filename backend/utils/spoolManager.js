@@ -48,6 +48,88 @@ function subtractSpoolWeight(spools, weightToSubtract) {
   };
 }
 
+const staticSpoolMap = {
+  "Silk PLA": {
+    "Silver": [450],
+    "Dark Yellow": [100],
+    "Light Gold": [600],
+    "Tri colour / Blue Green Purple": [600],
+  },
+  "PLA": {
+    "White": [300],
+    "ANTIQUE BRASS": [900],
+    "Black": [3000],
+  },
+  "PLA +": {
+    "Yellow": [950],
+    "Brown": [90],
+    "Red": [200, 30, 50, 200],
+    "Orange": [150],
+    "White": [500, 350],
+    "Black": [50],
+    "Grey": [30],
+    "Blue": [100],
+  },
+  "Hyper PLA": {
+    "Brown": [50],
+    "Blossom L": [800],
+    "Gold": [180],
+    "Black": [100, 150, 900, 400, 600],
+    "Green": [80, 950],
+    "Red": [950],
+    "White": [2000],
+    "Blue": [1000],
+    "Viva Magenta": [100],
+    "Orange": [1000],
+  },
+  "PETG": {
+    "Orange": [270],
+    "Blue": [800],
+    "Transparent": [850],
+    "Yellow": [300],
+    "Black": [0],
+    "Red": [1000, 250, 1000],
+  },
+  "ABS": {
+    "White": [250],
+    "Green": [650],
+    "Black": [100],
+  },
+  "ABS +": {
+    "Brown": [900],
+  },
+  "ASA": {
+    "Lemon Yellow": [1000],
+  },
+  "TPU": {
+    "95A - Black": [900, 50],
+    "Silk Black": [900],
+  },
+  "CF": {
+    "PPA - Black": [250],
+    "PLA - Black": [50],
+  },
+};
+
+function getStaticInitialSpools(filament, color) {
+  if (!filament || !color) return [1000];
+  const fNorm = filament.trim().toLowerCase();
+  const cNorm = color.trim().toLowerCase();
+
+  for (const groupKey of Object.keys(staticSpoolMap)) {
+    if (groupKey.toLowerCase() === fNorm) {
+      for (const colorKey of Object.keys(staticSpoolMap[groupKey])) {
+        if (colorKey.toLowerCase() === cNorm) {
+          return [...staticSpoolMap[groupKey][colorKey]];
+        }
+      }
+    }
+  }
+  return [1000];
+}
+
 module.exports = {
   subtractSpoolWeight,
+  getStaticInitialSpools,
 };
+

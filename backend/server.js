@@ -12,7 +12,8 @@ const verifyToken = require("./middleware/authMiddleware");
 const Log = require(path.join(__dirname, "models/Log"));
 const Filament = require("./models/filamentModel");
 const SyncState = require("./models/SyncState");
-const { subtractSpoolWeight } = require("./utils/spoolManager");
+const { subtractSpoolWeight, getStaticInitialSpools } = require("./utils/spoolManager");
+
 
 global.og = Log;
 
@@ -96,19 +97,31 @@ const syncGoogleSheetIncremental = async () => {
       const weight = Number(row[9] || row[8] || 0);
 
       if (filamentType && filamentColor && weight > 0) {
-        const item = await Filament.findOne({
+        let item = await Filament.findOne({
           filament: { $regex: new RegExp("^" + filamentType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
           color: { $regex: new RegExp("^" + filamentColor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
         });
-        if (item) {
-          const currentSpools = item.spools || [];
-          const { spools: updatedSpools, totalStock } = subtractSpoolWeight(currentSpools, weight);
-          await Filament.findByIdAndUpdate(item._id, {
-            $set: { spools: updatedSpools, currentStock: totalStock },
+
+        if (!item) {
+          const initialSpools = getStaticInitialSpools(filamentType, filamentColor);
+          item = await Filament.create({
+            filament: filamentType,
+            color: filamentColor,
+            currentStock: initialSpools.reduce((sum, w) => sum + w, 0),
+            usedStock: 0,
+            spools: initialSpools,
           });
-          console.log(`[SYNC] Deducted ${weight}g from ${filamentType} ${filamentColor}`);
+          console.log(`[SYNC] Initialized new DB doc for ${filamentType} ${filamentColor} with spools [${initialSpools.join(", ")}]`);
         }
+
+        const currentSpools = item.spools || [];
+        const { spools: updatedSpools, totalStock } = subtractSpoolWeight(currentSpools, weight);
+        await Filament.findByIdAndUpdate(item._id, {
+          $set: { spools: updatedSpools, currentStock: totalStock },
+        });
+        console.log(`[SYNC] Deducted ${weight}g from ${filamentType} ${filamentColor}`);
       }
+
     }
 
     syncState.lastProcessedRow += newRows.length;
