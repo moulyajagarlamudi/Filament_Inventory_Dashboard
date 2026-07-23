@@ -10,6 +10,16 @@ const logSchema = new mongoose.Schema(
     filament: String,
     color: String,
     weight: Number,
+    spoolNumber: {
+      type: String,
+      default: "Spool 1",
+    },
+    username: {
+      type: String,
+      default: "Admin",
+    },
+    date: String,
+    time: String,
 
     adminId: {
       type: String,
@@ -23,9 +33,8 @@ const logSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
-// ✅ FIX OVERWRITE ERROR
 module.exports =
   mongoose.models.Log || mongoose.model("Log", logSchema);

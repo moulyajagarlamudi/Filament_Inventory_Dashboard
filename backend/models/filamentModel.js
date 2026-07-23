@@ -24,7 +24,7 @@ const filamentSchema = new mongoose.Schema(
 
     // ✅ STORE MULTIPLE SPOOLS
     spools: {
-      type: [Number],
+      type: [mongoose.Schema.Types.Mixed],
       default: [],
     },
   },
