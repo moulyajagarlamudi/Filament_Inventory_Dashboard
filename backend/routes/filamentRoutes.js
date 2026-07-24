@@ -502,18 +502,24 @@ router.post("/delete-stock", async (req, res) => {
     const existingBaseSpools = Array.isArray(existing.baseSpools)
       ? existing.baseSpools.map(Number).filter((w) => w > 0)
       : [];
-    const currentSpools = existingBaseSpools.length > 0
-      ? existingBaseSpools
-      : normalizeSpools(existing.spools, existing.currentStock);
+    const currentSpools = Array.isArray(existing.spools) && existing.spools.length > 0
+      ? normalizeSpools(existing.spools, existing.currentStock)
+      : existingBaseSpools.length > 0
+        ? existingBaseSpools
+        : normalizeSpools(existing.spools, existing.currentStock);
+
+    const reduction = subtractSpoolWeight(currentSpools, safeWeight);
+    const nextSpools = reduction.spools;
+    const nextStock = reduction.totalStock;
 
     const updated = await Filament.findByIdAndUpdate(
       existing._id,
       {
         $set: {
-          spools: currentSpools,
-          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
-          usedStock: Number(existing.usedStock || 0),
-          baseSpools: currentSpools,
+          spools: nextSpools,
+          currentStock: nextStock,
+          usedStock: Number(existing.usedStock || 0) + safeWeight,
+          baseSpools: existingBaseSpools.length > 0 ? existingBaseSpools : currentSpools,
         },
       },
       { new: true },
@@ -565,7 +571,7 @@ router.post("/delete-stock", async (req, res) => {
       success: true,
       message: `Removed ${safeWeight}g from inventory.`,
       updated,
-      spoolsRemoved: currentSpools.length - updatedSpools.length,
+      spoolsRemoved: currentSpools.length - nextSpools.length,
     });
   } catch (err) {
     console.error("Delete stock error:", err);
@@ -590,18 +596,24 @@ router.post("/:id/delete-stock", async (req, res) => {
     const existingBaseSpools = Array.isArray(existing.baseSpools)
       ? existing.baseSpools.map(Number).filter((w) => w > 0)
       : [];
-    const currentSpools = existingBaseSpools.length > 0
-      ? existingBaseSpools
-      : normalizeSpools(existing.spools, existing.currentStock);
+    const currentSpools = Array.isArray(existing.spools) && existing.spools.length > 0
+      ? normalizeSpools(existing.spools, existing.currentStock)
+      : existingBaseSpools.length > 0
+        ? existingBaseSpools
+        : normalizeSpools(existing.spools, existing.currentStock);
+
+    const reduction = subtractSpoolWeight(currentSpools, safeWeight);
+    const nextSpools = reduction.spools;
+    const nextStock = reduction.totalStock;
 
     const updated = await Filament.findByIdAndUpdate(
       existing._id,
       {
         $set: {
-          spools: currentSpools,
-          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
-          usedStock: Number(existing.usedStock || 0),
-          baseSpools: currentSpools,
+          spools: nextSpools,
+          currentStock: nextStock,
+          usedStock: Number(existing.usedStock || 0) + safeWeight,
+          baseSpools: existingBaseSpools.length > 0 ? existingBaseSpools : currentSpools,
         },
       },
       { new: true },
@@ -707,17 +719,22 @@ router.delete("/delete-stock", async (req, res) => {
     const existingBaseSpools = Array.isArray(existing.baseSpools)
       ? existing.baseSpools.map(Number).filter((w) => w > 0)
       : [];
-    const currentSpools = existingBaseSpools.length > 0
-      ? existingBaseSpools
-      : normalizeSpools(existing.spools, existing.currentStock);
+    const currentSpools = Array.isArray(existing.spools) && existing.spools.length > 0
+      ? normalizeSpools(existing.spools, existing.currentStock)
+      : existingBaseSpools.length > 0
+        ? existingBaseSpools
+        : normalizeSpools(existing.spools, existing.currentStock);
+    const reduction = subtractSpoolWeight(currentSpools, safeWeight);
+    const nextSpools = reduction.spools;
+    const nextStock = reduction.totalStock;
     const updated = await Filament.findByIdAndUpdate(
       existing._id,
       {
         $set: {
-          spools: currentSpools,
-          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
-          usedStock: Number(existing.usedStock || 0),
-          baseSpools: currentSpools,
+          spools: nextSpools,
+          currentStock: nextStock,
+          usedStock: Number(existing.usedStock || 0) + safeWeight,
+          baseSpools: existingBaseSpools.length > 0 ? existingBaseSpools : currentSpools,
         },
       },
       { new: true },
@@ -775,7 +792,7 @@ router.delete("/delete-stock", async (req, res) => {
       success: true,
       message: `Removed ${safeWeight}g from inventory.`,
       updated,
-      spoolsRemoved: currentSpools.length - updatedSpools.length,
+      spoolsRemoved: currentSpools.length - nextSpools.length,
     });
   } catch (err) {
     console.error("Delete stock error:", err);
