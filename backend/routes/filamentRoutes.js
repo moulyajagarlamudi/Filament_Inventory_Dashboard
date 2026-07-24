@@ -1,8 +1,7 @@
 const express = require("express");
 const { google } = require("googleapis");
 const verifyToken = require("../middleware/authMiddleware");
-const { subtractSpoolWeight, getStaticInitialSpools } = require("../utils/spoolManager");
-
+const { subtractSpoolWeight } = require("../utils/spoolManager");
 
 const router = express.Router();
 
@@ -52,36 +51,43 @@ const normalizeSpools = (spools, currentStock = 0) => {
 };
 
 const calculateStock = (spools, currentStock = 0) =>
-  normalizeSpools(spools, currentStock).reduce((sum, weight) => sum + Number(weight || 0), 0);
+  normalizeSpools(spools, currentStock).reduce(
+    (sum, weight) => sum + Number(weight || 0),
+    0,
+  );
 
 function formatDateString(dateInput, forSheet = false) {
   let cleanStr = "";
   if (!dateInput) {
     const d = new Date();
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
     cleanStr = `${day}-${month}-${year}`;
   } else {
-    const str = String(dateInput).replace(/^'/, '').trim();
+    const str = String(dateInput).replace(/^'/, "").trim();
     if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str)) {
       const parts = str.split(/[-/]/);
-      const day = parts[0].padStart(2, '0');
-      const month = parts[1].padStart(2, '0');
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
       const year = parts[2];
       cleanStr = `${day}-${month}-${year}`;
-    } else if (!isNaN(Number(str)) && Number(str) > 30000 && Number(str) < 100000) {
+    } else if (
+      !isNaN(Number(str)) &&
+      Number(str) > 30000 &&
+      Number(str) < 100000
+    ) {
       const excelEpoch = new Date(1899, 11, 30);
       const d = new Date(excelEpoch.getTime() + Number(str) * 86400000);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
       const year = d.getFullYear();
       cleanStr = `${day}-${month}-${year}`;
     } else {
       const d = new Date(str);
       if (!isNaN(d.getTime())) {
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
         const year = d.getFullYear();
         cleanStr = `${day}-${month}-${year}`;
       } else {
@@ -102,7 +108,6 @@ const appendSheetRow = async (rowValues) => {
         : path.join(__dirname, "..", "credentials.json"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-
 
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
@@ -130,7 +135,10 @@ const appendSheetRow = async (rowValues) => {
         nextSNo = 1;
       }
     } catch (fetchErr) {
-      console.warn("Could not fetch Col A, falling back to SyncState:", fetchErr.message);
+      console.warn(
+        "Could not fetch Col A, falling back to SyncState:",
+        fetchErr.message,
+      );
       let syncState = await SyncState.findOne({ key: "google_sheet_sync" });
       nextSNo = (syncState?.lastProcessedRow || 0) + 1;
     }
@@ -159,7 +167,7 @@ const appendSheetRow = async (rowValues) => {
     await SyncState.findOneAndUpdate(
       { key: "google_sheet_sync" },
       { $set: { lastProcessedRow: newRowCount } },
-      { upsert: true }
+      { upsert: true },
     );
   } catch (err) {
     console.error("Google Sheets append failed:", err);
@@ -193,16 +201,28 @@ router.post("/", verifyToken, async (req, res) => {
       usedStock = 0,
       spools = [],
       weight = null,
-      existingSpools = [],  // sent by frontend: current spools from DB or static data
+      existingSpools = [], // sent by frontend: current spools from DB or static data
     } = req.body;
 
     if (!filament || !color) {
-      return res.status(400).json({ error: "Filament name and color are required." });
+      return res
+        .status(400)
+        .json({ error: "Filament name and color are required." });
     }
 
     const filter = {
-      filament: { $regex: new RegExp("^" + filament.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
-      color: { $regex: new RegExp("^" + color.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
+      filament: {
+        $regex: new RegExp(
+          "^" + filament.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
+      color: {
+        $regex: new RegExp(
+          "^" + color.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
     };
 
     const existing = await Filament.findOne(filter);
@@ -221,12 +241,10 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     if (existing) {
-      let currentBase = Array.isArray(existing.baseSpools) && existing.baseSpools.length > 0
-        ? existing.baseSpools
-        : getStaticInitialSpools(existing.filament, existing.color);
-      const nextBase = [...currentBase, newSpoolWeight];
-
-      let currentSpools = normalizeSpools(existing.spools, existing.currentStock);
+      let currentSpools = normalizeSpools(
+        existing.spools,
+        existing.currentStock,
+      );
       if (currentSpools.length === 0 && existingSpools.length > 0) {
         currentSpools = existingSpools.map(Number).filter((w) => w > 0);
       }
@@ -238,12 +256,11 @@ router.post("/", verifyToken, async (req, res) => {
         {
           $set: {
             spools: nextSpools,
-            baseSpools: nextBase,
             usedStock: usedStock || existing.usedStock,
             currentStock: totalStock,
           },
         },
-        { new: true }
+        { new: true },
       );
 
       try {
@@ -275,9 +292,7 @@ router.post("/", verifyToken, async (req, res) => {
       currentStock: initialStock,
       usedStock,
       spools: initialSpools,
-      baseSpools: initialSpools,
     });
-
 
     try {
       await Log.create({
@@ -320,17 +335,30 @@ router.put("/:id", verifyToken, async (req, res) => {
     // If a new weight is being added, ALWAYS append as a new spool — never replace
     let nextSpools;
     if (req.body.weight && Number(req.body.weight) > 0) {
-      const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
+      const currentSpools = normalizeSpools(
+        existing.spools,
+        existing.currentStock,
+      );
       nextSpools = [...currentSpools, Number(req.body.weight)];
-    } else if (req.body.spools && Array.isArray(req.body.spools) && req.body.spools.length > 0) {
+    } else if (
+      req.body.spools &&
+      Array.isArray(req.body.spools) &&
+      req.body.spools.length > 0
+    ) {
       // Explicit spools array provided — APPEND each new one, don't replace
-      const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
+      const currentSpools = normalizeSpools(
+        existing.spools,
+        existing.currentStock,
+      );
       const incomingWeights = normalizeSpools(req.body.spools);
       nextSpools = [...currentSpools, ...incomingWeights];
     } else {
       nextSpools = normalizeSpools(existing.spools, existing.currentStock);
     }
-    const nextCurrentStock = nextSpools.reduce((sum, w) => sum + Number(w || 0), 0);
+    const nextCurrentStock = nextSpools.reduce(
+      (sum, w) => sum + Number(w || 0),
+      0,
+    );
 
     const updated = await Filament.findByIdAndUpdate(
       req.params.id,
@@ -339,7 +367,7 @@ router.put("/:id", verifyToken, async (req, res) => {
         spools: nextSpools,
         currentStock: nextCurrentStock,
       },
-      { new: true }
+      { new: true },
     );
 
     const newStock = updated.currentStock || 0;
@@ -352,7 +380,8 @@ router.put("/:id", verifyToken, async (req, res) => {
         filament: updated.filament,
         color: updated.color,
         weight: Math.abs(addedWeight),
-        spoolNumber: addedWeight >= 0 ? `Spool ${updated.spools.length}` : "Spool 1",
+        spoolNumber:
+          addedWeight >= 0 ? `Spool ${updated.spools.length}` : "Spool 1",
         username: req.user?.adminId || "Admin",
         date: now.toISOString().split("T")[0],
         time: now.toLocaleTimeString(),
@@ -416,7 +445,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
 // Removes from LOWEST spool first, auto-deletes 0g spools, logs & appends to Google Sheet
 // ========================================
 router.post("/delete-stock", async (req, res) => {
-  console.log('POST /delete-stock received', req.body);
+  console.log("POST /delete-stock received", req.body);
   try {
     const {
       filament,
@@ -428,56 +457,73 @@ router.post("/delete-stock", async (req, res) => {
 
     const safeFilament = (filament || sheetData.filamentType || "").trim();
     const safeColor = (color || sheetData.filamentColor || "").trim();
-    const safeWeight = Number(weightToReduce || sheetData.totalFilamentUsage || 0);
+    const safeWeight = Number(
+      weightToReduce || sheetData.totalFilamentUsage || 0,
+    );
 
     if (!safeFilament || !safeColor) {
-      return res.status(400).json({ error: "Filament type and colour are required." });
+      return res
+        .status(400)
+        .json({ error: "Filament type and colour are required." });
     }
 
     if (isNaN(safeWeight) || safeWeight <= 0) {
-      return res.status(400).json({ error: "Weight to reduce must be a positive number." });
+      return res
+        .status(400)
+        .json({ error: "Weight to reduce must be a positive number." });
     }
 
     // Find document case-insensitively
     let existing = await Filament.findOne({
-      filament: { $regex: new RegExp("^" + safeFilament.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
-      color: { $regex: new RegExp("^" + safeColor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "$", "i") },
+      filament: {
+        $regex: new RegExp(
+          "^" + safeFilament.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
+      color: {
+        $regex: new RegExp(
+          "^" + safeColor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
     });
 
     if (!existing) {
-      // Initialize doc if missing using static initial spools
-      const initialSpools = getStaticInitialSpools(safeFilament, safeColor);
       existing = await Filament.create({
         filament: safeFilament,
         color: safeColor,
-        currentStock: initialSpools.reduce((sum, w) => sum + w, 0),
+        currentStock: 1000,
         usedStock: 0,
-        spools: initialSpools,
+        spools: [1000],
       });
     }
 
-
-    const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
-    const { spools: updatedSpools, totalStock } = subtractSpoolWeight(
-      currentSpools,
-      safeWeight
-    );
+    const existingBaseSpools = Array.isArray(existing.baseSpools)
+      ? existing.baseSpools.map(Number).filter((w) => w > 0)
+      : [];
+    const currentSpools = existingBaseSpools.length > 0
+      ? existingBaseSpools
+      : normalizeSpools(existing.spools, existing.currentStock);
 
     const updated = await Filament.findByIdAndUpdate(
       existing._id,
       {
         $set: {
-          spools: updatedSpools,
-          currentStock: totalStock,
+          spools: currentSpools,
+          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
+          usedStock: Number(existing.usedStock || 0),
+          baseSpools: currentSpools,
         },
       },
-      { new: true }
+      { new: true },
     );
 
     const now = new Date();
     const dateVal = formatDateString(sheetData.date || now);
     const timeVal = now.toLocaleTimeString();
-    const userVal = username || sheetData.username || req.user?.adminId || "User";
+    const userVal =
+      username || sheetData.username || req.user?.adminId || "User";
 
     try {
       await Log.create({
@@ -497,21 +543,20 @@ router.post("/delete-stock", async (req, res) => {
 
     // Append deletion info to Google Sheet (always, using sheetData fields when available)
     const rowValues = [
-      dateVal,                                        // B: Date
-      userVal,                                        // C: Username
-      sheetData.partName   || "",                    // D: 3D Part Name
-      sheetData.projectBy  || "",                    // E: Project By
-      sheetData.quantity   || 1,                      // F: Quantity
-      safeFilament,                                   // G: Filament Type
-      safeColor,                                      // H: Filament Color
-      sheetData.filamentUsage || safeWeight,          // I: Filament Usage (gms)
-      sheetData.totalFilamentUsage || safeWeight,     // J: Total Filament Usage (gms)
-      sheetData.printTime  || "",                    // K: Print Time
-      sheetData.printer    || "",                    // L: Printer
+      dateVal, // B: Date
+      userVal, // C: Username
+      sheetData.partName || "", // D: 3D Part Name
+      sheetData.projectBy || "", // E: Project By
+      sheetData.quantity || 1, // F: Quantity
+      safeFilament, // G: Filament Type
+      safeColor, // H: Filament Color
+      sheetData.filamentUsage || safeWeight, // I: Filament Usage (gms)
+      sheetData.totalFilamentUsage || safeWeight, // J: Total Filament Usage (gms)
+      sheetData.printTime || "", // K: Print Time
+      sheetData.printer || "", // L: Printer
     ];
     try {
       await appendSheetRow(rowValues);
-      
     } catch (sheetErr) {
       console.error("Sheet append failed:", sheetErr);
     }
@@ -537,16 +582,29 @@ router.post("/:id/delete-stock", async (req, res) => {
     }
     req.body.filament = existing.filament;
     req.body.color = existing.color;
-    
-    // Forward internally
-    const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
-    const safeWeight = Number(req.body.weightToReduce || req.body.sheetData?.totalFilamentUsage || 0);
 
-    const { spools: updatedSpools, totalStock } = subtractSpoolWeight(currentSpools, safeWeight);
+    const safeWeight = Number(
+      req.body.weightToReduce || req.body.sheetData?.totalFilamentUsage || 0,
+    );
+
+    const existingBaseSpools = Array.isArray(existing.baseSpools)
+      ? existing.baseSpools.map(Number).filter((w) => w > 0)
+      : [];
+    const currentSpools = existingBaseSpools.length > 0
+      ? existingBaseSpools
+      : normalizeSpools(existing.spools, existing.currentStock);
+
     const updated = await Filament.findByIdAndUpdate(
       existing._id,
-      { $set: { spools: updatedSpools, currentStock: totalStock } },
-      { new: true }
+      {
+        $set: {
+          spools: currentSpools,
+          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
+          usedStock: Number(existing.usedStock || 0),
+          baseSpools: currentSpools,
+        },
+      },
+      { new: true },
     );
 
     const now = new Date();
@@ -601,30 +659,74 @@ router.post("/:id/delete-stock", async (req, res) => {
 router.delete("/delete-stock", async (req, res) => {
   // reuse POST handler logic
   try {
-    const { filament, color, weightToReduce, sheetData = {}, username } = req.body;
+    const {
+      filament,
+      color,
+      weightToReduce,
+      sheetData = {},
+      username,
+    } = req.body;
     const safeFilament = (filament || sheetData.filamentType || "").trim();
     const safeColor = (color || sheetData.filamentColor || "").trim();
-    const safeWeight = Number(weightToReduce || sheetData.totalFilamentUsage || 0);
+    const safeWeight = Number(
+      weightToReduce || sheetData.totalFilamentUsage || 0,
+    );
     if (!safeFilament || !safeColor) {
-      return res.status(400).json({ error: "Filament type and colour are required." });
+      return res
+        .status(400)
+        .json({ error: "Filament type and colour are required." });
     }
     if (isNaN(safeWeight) || safeWeight <= 0) {
-      return res.status(400).json({ error: "Weight to reduce must be a positive number." });
+      return res
+        .status(400)
+        .json({ error: "Weight to reduce must be a positive number." });
     }
     let existing = await Filament.findOne({
-      filament: { $regex: new RegExp("^" + safeFilament.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + "$", "i") },
-      color: { $regex: new RegExp("^" + safeColor.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + "$", "i") },
+      filament: {
+        $regex: new RegExp(
+          "^" + safeFilament.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
+      color: {
+        $regex: new RegExp(
+          "^" + safeColor.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&") + "$",
+          "i",
+        ),
+      },
     });
     if (!existing) {
-        existing = await Filament.create({ filament: safeFilament, color: safeColor, currentStock: 1000, usedStock: 0, spools: [1000] });
+      existing = await Filament.create({
+        filament: safeFilament,
+        color: safeColor,
+        currentStock: 1000,
+        usedStock: 0,
+        spools: [1000],
+      });
     }
-    const currentSpools = normalizeSpools(existing.spools, existing.currentStock);
-    const { spools: updatedSpools, totalStock } = subtractSpoolWeight(currentSpools, safeWeight);
-    const updated = await Filament.findByIdAndUpdate(existing._id, { $set: { spools: updatedSpools, currentStock: totalStock } }, { new: true });
+    const existingBaseSpools = Array.isArray(existing.baseSpools)
+      ? existing.baseSpools.map(Number).filter((w) => w > 0)
+      : [];
+    const currentSpools = existingBaseSpools.length > 0
+      ? existingBaseSpools
+      : normalizeSpools(existing.spools, existing.currentStock);
+    const updated = await Filament.findByIdAndUpdate(
+      existing._id,
+      {
+        $set: {
+          spools: currentSpools,
+          currentStock: currentSpools.reduce((sum, w) => sum + Number(w || 0), 0),
+          usedStock: Number(existing.usedStock || 0),
+          baseSpools: currentSpools,
+        },
+      },
+      { new: true },
+    );
     const now = new Date();
     const dateVal = formatDateString(sheetData.date || now);
     const timeVal = now.toLocaleTimeString();
-    const userVal = username || sheetData.username || req.user?.adminId || "User";
+    const userVal =
+      username || sheetData.username || req.user?.adminId || "User";
 
     try {
       await Log.create({
@@ -642,7 +744,13 @@ router.delete("/delete-stock", async (req, res) => {
       console.error("Log create failed (non-fatal):", logErr);
     }
 
-    if (sheetData && (sheetData.partName || sheetData.projectBy || sheetData.printer || sheetData.date)) {
+    if (
+      sheetData &&
+      (sheetData.partName ||
+        sheetData.projectBy ||
+        sheetData.printer ||
+        sheetData.date)
+    ) {
       const rowValues = [
         dateVal,
         userVal,
@@ -658,13 +766,17 @@ router.delete("/delete-stock", async (req, res) => {
       ];
       try {
         await appendSheetRow(rowValues);
-
       } catch (sheetErr) {
         console.error("Sheet append failed:", sheetErr);
       }
     }
 
-    return res.json({ success: true, message: `Removed ${safeWeight}g from inventory.`, updated, spoolsRemoved: currentSpools.length - updatedSpools.length });
+    return res.json({
+      success: true,
+      message: `Removed ${safeWeight}g from inventory.`,
+      updated,
+      spoolsRemoved: currentSpools.length - updatedSpools.length,
+    });
   } catch (err) {
     console.error("Delete stock error:", err);
     return res.status(500).json({ error: err.message });

@@ -90,7 +90,10 @@ export default function Home({
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/filaments/inventory`);
+      const res = await fetch(`${API_BASE}/filaments/inventory`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (!res.ok) return;
       const data = await res.json();
       const map = {};
@@ -134,7 +137,12 @@ export default function Home({
       const res = await fetch(`${API_BASE}/logs`);
       if (res.ok) {
         const data = await res.json();
-        setLogs(data);
+        const normalizedLogs = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.logs)
+            ? data.logs
+            : [];
+        setLogs(normalizedLogs);
       }
     } catch (err) {
       console.log("Logs fetch error:", err);
@@ -153,6 +161,18 @@ export default function Home({
     fetchData();
     const interval = setInterval(fetchData, 4000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchInventory();
+        fetchLogs();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API_BASE = process.env.NODE_ENV === "development" ? "http://localhost:4000/api" : "/api";
+
 export default function AdminLogin() {
   const navigate = useNavigate();
 
@@ -13,7 +15,7 @@ export default function AdminLogin() {
 
     try {
       const response = await fetch(
-        "https://filament-backend.onrender.com/api/auth/login",
+        `${API_BASE}/auth/login`,
         {
           method: "POST",
           headers: {

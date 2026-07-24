@@ -22,22 +22,25 @@ const filamentSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ✅ STORE MULTIPLE SPOOLS
     spools: {
       type: [mongoose.Schema.Types.Mixed],
       default: [],
     },
 
-    // ✅ BASE SPOOLS BEFORE GOOGLE SHEET USAGE DEDUCTIONS
     baseSpools: {
       type: [Number],
       default: undefined,
     },
-
   },
   {
     timestamps: true,
   }
+);
+
+// ⭐ ADD THESE 3 LINES
+filamentSchema.index(
+  { filament: 1, color: 1 },
+  { unique: true }
 );
 
 module.exports =
