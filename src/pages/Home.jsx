@@ -24,7 +24,7 @@ import redSpool from "../assets/red_spool.png";
 import brassSpool from "../assets/Antique_brass_spool.png";
 import greySpool from "../assets/grey_spool.png";
 
-const API_BASE = process.env.NODE_ENV === "development" ? "http://localhost:4000/api" : "/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 export default function Home({
   isAdmin = false,
