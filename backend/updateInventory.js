@@ -1,9 +1,8 @@
 const mongoose = require("mongoose");
 const Filament = require("./models/filamentModel");
+require("dotenv").config({ path: ".env" });
 
-mongoose.connect(
-  "mongodb+srv://moulyajagarlamudi93_db_user:moulya1234@cluster0.pvodhao.mongodb.net/filamentDB?retryWrites=true&w=majority&appName=Cluster0",
-);
+mongoose.connect(process.env.MONGO_URI);
 
 async function update() {
   const inventory = [

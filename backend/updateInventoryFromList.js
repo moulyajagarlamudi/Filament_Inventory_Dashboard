@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Filament = require('./models/filamentModel');
+require('dotenv').config({ path: '.env' });
 
 const inventory = [
   { filament: 'Silk PLA', color: 'Silver', spools: [461] },
@@ -56,7 +57,7 @@ const getKey = (filament, color) => `${normalizeName(filament)}|${normalizeName(
 
 (async () => {
   try {
-    await mongoose.connect('mongodb+srv://moulyajagarlamudi93_db_user:moulya1234@cluster0.pvodhao.mongodb.net/filamentDB?retryWrites=true&w=majority&appName=Cluster0');
+    await mongoose.connect(process.env.MONGO_URI);
 
     const targetKeys = new Set(inventory.map((item) => getKey(item.filament, item.color)));
 

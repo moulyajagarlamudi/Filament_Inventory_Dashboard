@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 const Filament = require('./models/filamentModel');
+require('dotenv').config({ path: '.env' });
 
 (async () => {
   try {
-    await mongoose.connect('mongodb+srv://moulyajagarlamudi93_db_user:moulya1234@cluster0.pvodhao.mongodb.net/filamentDB?retryWrites=true&w=majority&appName=Cluster0');
+    await mongoose.connect(process.env.MONGO_URI);
     const existing = await Filament.findOne({
       filament: { $regex: '^ABS$', $options: 'i' },
       color: { $regex: '^Black$', $options: 'i' },

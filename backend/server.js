@@ -45,17 +45,18 @@ const normalizeName = (value) =>
 const getCanonicalKey = (filamentName, colorName) =>
   `${normalizeName(filamentName)}|${normalizeName(colorName)}`;
 
-const mongoUri = process.env.MONGO_URI;
-if (mongoUri) {
-  mongoose
-    .connect(mongoUri)
-    .then(() => console.log("MongoDB connected"))
-    .catch((err) => console.error("MongoDB connection error:", err));
-} else {
-  console.warn(
-    "MONGO_URI is not defined. MongoDB routes will not function until .env is configured.",
-  );
-}
+const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || "mongodb://127.0.0.1:27017/filamentDB";
+
+mongoose
+  .connect(mongoUri, { serverSelectionTimeoutMS: 5000, autoIndex: true })
+  .then(() => {
+    console.log("MongoDB connected");
+    startServer();
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message);
+    process.exit(1);
+  });
 
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.RENDER
@@ -378,13 +379,14 @@ process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  seedDefaultInventory().catch((err) => console.error("[SEED ERROR]", err));
-  syncGoogleSheetIncremental().catch((err) =>
-    console.error("[STARTUP SYNC ERROR]", err),
-  );
-});
+function startServer() {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    seedDefaultInventory().catch(err => console.error("[SEED ERROR]", err));
+    syncGoogleSheetIncremental().catch(err => console.error("[STARTUP SYNC ERROR]", err));
+  });
+}
 
 app.get("/version", (req, res) => {
   res.send("NEW BACKEND VERSION");
